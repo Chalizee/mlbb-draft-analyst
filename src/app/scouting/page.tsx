@@ -350,7 +350,7 @@ export default function ScoutingPage() {
       const oppBans = (r.oppBans || []).slice(0,5);
       const oppPicks = (r.oppPicks || []).slice(0,5);
 
-      const renderAvatars = (arr: string[]) => arr.map((h) => `${heroImgHtml(h)}<div class="lbl">${h || ''}</div>`).join('');
+      const renderAvatars = (arr: string[]) => arr.map((h) => `${heroImgHtml(h)}`).join('');
 
       return `
         <div class="match-row">
@@ -406,15 +406,11 @@ export default function ScoutingPage() {
           .section { display:flex;flex-direction:column;gap:6px; }
           .sec-title { font-size:10px;color:#666;font-weight:700;letter-spacing:0.6px;text-transform:uppercase; }
           .avatars { display:flex;gap:6px;flex-wrap:wrap;align-items:center; }
-          .avatars .lbl { font-size:9px;color:#444;text-align:center;margin-top:4px; }
-          img { width:30px;height:30px;border-radius:50%;object-fit:cover;border:1px solid #ddd; }
-          .lbl { width:48px; font-size:9px; color:#333; text-align:center; }
+          img { width:24px;height:24px;border-radius:50%;object-fit:cover;border:1px solid #ddd; }
           @media (max-width:900px) { .match-row{grid-template-columns:1fr;} }
         </style>
       </head>
       <body>
-        <h2 style="margin:0 0 8px 0;">Draft Report — ${teamName}</h2>
-        <div style="font-size:12px;color:#444;margin-bottom:10px;">${draftReportMatches.length} matches</div>
         <div class="wrap">
           ${rows}
         </div>
