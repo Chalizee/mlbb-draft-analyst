@@ -335,12 +335,45 @@ export default function ScoutingPage() {
       return;
     }
 
-    // Copy current styles (link and style tags) so the printed output matches the preview
-    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+    // Clone preview and inline computed styles so printed output matches exactly
+    const clone = preview.cloneNode(true) as HTMLElement;
+    const origElems = Array.from(preview.querySelectorAll<HTMLElement>('*'));
+    const cloneElems = Array.from(clone.querySelectorAll<HTMLElement>('*'));
+    for (let i = 0; i < origElems.length; i++) {
+      const o = origElems[i];
+      const c = cloneElems[i];
+      if (!c) continue;
+      try {
+        const cs = window.getComputedStyle(o);
+        let cssText = '';
+        for (let j = 0; j < cs.length; j++) {
+          const prop = cs[j];
+          cssText += `${prop}:${cs.getPropertyValue(prop)};`;
+        }
+        c.setAttribute('style', cssText);
+      } catch (e) {
+        // ignore computed style errors for some elements
+      }
+    }
+
+    // Also inline root computed styles for body/font fallback
+    const docStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
       .map((el) => el.outerHTML)
       .join('\n');
 
-    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Draft Report</title>${styles}<style>@media print{@page{margin:12mm}}</style></head><body>${preview.outerHTML}<script>window.onload=function(){setTimeout(()=>{window.print();},150)};</script></body></html>`;
+    const printScript = `
+      function waitImagesAndPrint(){
+        const imgs = Array.from(document.images);
+        if(imgs.length===0){ window.print(); return; }
+        let loaded = 0; const total = imgs.length;
+        const check = ()=>{ loaded++; if(loaded>=total) window.print(); };
+        imgs.forEach(img=>{ if(img.complete) check(); else { img.addEventListener('load', check); img.addEventListener('error', check); } });
+        setTimeout(()=>{ if(loaded<total) window.print(); }, 1500);
+      }
+      window.onload = function(){ setTimeout(waitImagesAndPrint, 50); };
+    `;
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Draft Report</title>${docStyles}<style>@media print{@page{margin:12mm}}</style></head><body>${clone.outerHTML}<script>${printScript}</script></body></html>`;
 
     const w = window.open('', '_blank');
     if (w) {
