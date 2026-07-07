@@ -413,7 +413,35 @@ export default function ScoutingPage() {
     // Add explicit @page rules (A4 landscape) to encourage correct pagination/scale in browser print dialog
     const pageRule = `<style>@page{ size: A4 landscape; margin:8mm; }</style>`;
 
-    const html = `<!doctype html><html class="${rootClass}"><head><meta charset="utf-8"/><title>Draft Report</title>${docStyles}${pageRule}${extraPrintCss}<style>@media print{@page{margin:12mm}}</style></head><body class="${bodyClass}" style="${bodyInline}">${clone.outerHTML}<script>${printScript}</script></body></html>`;
+    // Paginate by measuring a match-row and grouping rows per A4 landscape printable height
+    let bodyContentHtml = clone.outerHTML;
+    try {
+      const mmToPx = (mm: number) => mm * (96 / 25.4);
+      const pagePrintableMm = 210 - 16; // A4 short side (210mm) minus 8mm margins top+bottom each
+      const printablePx = mmToPx(pagePrintableMm);
+      const sampleRow = preview.querySelector('.match-row') as HTMLElement | null;
+      const rowHeight = sampleRow ? sampleRow.getBoundingClientRect().height : 160;
+      const rowsPerPage = Math.max(1, Math.floor(printablePx / rowHeight));
+
+      const cloneRows = Array.from(clone.querySelectorAll('.match-row')) as HTMLElement[];
+      if (cloneRows.length > 0) {
+        const pagesContainer = document.createElement('div');
+        pagesContainer.className = 'print-pages';
+        for (let i = 0; i < cloneRows.length; i += rowsPerPage) {
+          const pageWrap = document.createElement('div');
+          pageWrap.className = 'print-page';
+          const chunk = cloneRows.slice(i, i + rowsPerPage);
+          chunk.forEach((r) => pageWrap.appendChild(r));
+          pagesContainer.appendChild(pageWrap);
+        }
+        bodyContentHtml = pagesContainer.outerHTML;
+      }
+    } catch (e) {
+      // fallback to whole clone if pagination fails
+      bodyContentHtml = clone.outerHTML;
+    }
+
+    const html = `<!doctype html><html class="${rootClass}"><head><meta charset="utf-8"/><title>Draft Report</title>${docStyles}${pageRule}${extraPrintCss}<style>@media print{@page{margin:12mm}}</style></head><body class="${bodyClass}" style="${bodyInline}">${bodyContentHtml}<script>${printScript}</script></body></html>`;
 
     const w = window.open('', '_blank');
     if (w) {
