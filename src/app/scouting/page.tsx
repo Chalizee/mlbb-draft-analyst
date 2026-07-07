@@ -312,16 +312,18 @@ export default function ScoutingPage() {
   };
 
   const renderHeroPickIcon = (heroName: string, key: string) => {
-    const imageUrl = getHeroImageUrl(heroName);
+    const matchedHero = findHeroByName(heroName, heroes);
+    const displayName = matchedHero?.name || heroName;
+    const imageUrl = matchedHero?.imageUrl || getHeroImageUrl(heroName);
     return (
       <div key={key} className="flex flex-col items-center gap-2 min-w-[48px]">
         <HeroAvatar
           imageUrl={imageUrl}
-          name={heroName}
+          name={displayName}
           size="sm"
           className="border border-border/40 bg-bg-surface"
         />
-        <span className="text-[10px] text-center text-text-secondary leading-tight break-words max-w-[72px]">{heroName}</span>
+        <span className="text-[10px] text-center text-text-secondary leading-tight break-words max-w-[72px]">{displayName}</span>
       </div>
     );
   };
@@ -408,7 +410,7 @@ export default function ScoutingPage() {
       window.onload = function(){ setTimeout(waitImagesAndPrint, 50); };
     `;
 
-    const extraPrintCss = `<style>@media print{ .print-expanded *{max-height:none !important; overflow:visible !important;} .wrap{display:block; width:100% !important;} .match-row{page-break-inside:avoid;break-inside:avoid; page-break-after:auto;} .print-page{height:194mm; box-sizing:border-box; page-break-after:always; width:100%;} html,body{height:auto !important;} img{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }</style>`;
+    const extraPrintCss = `<style>@media print{ .print-expanded *{max-height:none !important; overflow:visible !important;} .wrap{display:block; width:100% !important;} .match-row, .print-page{page-break-inside:avoid;break-inside:avoid;} .print-page{page-break-after:always; width:100%;} html,body{height:auto !important;} img{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }</style>`;
 
     // Add explicit @page rules (A4 landscape) to encourage correct pagination/scale in browser print dialog
     const pageRule = `<style>@page{ size: A4 landscape; margin:8mm; }</style>`;
