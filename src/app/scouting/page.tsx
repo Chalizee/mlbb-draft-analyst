@@ -330,120 +330,78 @@ export default function ScoutingPage() {
 
   // Open a compact, print-optimized window for draft report (compact layout)
   const printDraftReport = () => {
-    if (typeof window === 'undefined') return;
-    const preview = document.getElementById('draft-report-preview');
-    if (!preview) {
-      alert('Preview not found — please open the Draft Report modal first.');
+    if (!draftReportMatches || draftReportMatches.length === 0) {
+      alert('No draft matches available to print.');
       return;
     }
 
-    // Clone preview and inline computed styles so printed output matches exactly
-    const clone = preview.cloneNode(true) as HTMLElement;
-    const origElems = Array.from(preview.querySelectorAll<HTMLElement>('*'));
-    const cloneElems = Array.from(clone.querySelectorAll<HTMLElement>('*'));
-    for (let i = 0; i < origElems.length; i++) {
-      const o = origElems[i];
-      const c = cloneElems[i];
-      if (!c) continue;
-      try {
-        const cs = window.getComputedStyle(o);
-        let cssText = '';
-        for (let j = 0; j < cs.length; j++) {
-          const prop = cs[j];
-          cssText += `${prop}:${cs.getPropertyValue(prop)};`;
-        }
-        c.setAttribute('style', cssText);
-      } catch (e) {
-        // ignore computed style errors for some elements
+    const heroImgHtml = (name?: string) => {
+      const url = name ? getHeroImageUrl(name) : undefined;
+      if (url) {
+        return `<img src="${url}" alt="${name}" style="width:20px;height:20px;border-radius:4px;object-fit:cover;border:1px solid #bbb;"/>`;
       }
-    }
+      const letter = name ? name.charAt(0).toUpperCase() : '?';
+      return `<div style="width:20px;height:20px;border-radius:4px;background:#ddd;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#444;border:1px solid #bbb;">${letter}</div>`;
+    };
 
-    // Remove scrolling/max-height constraints in the clone so all content is visible for printing
-    clone.classList.add('print-expanded');
-    const cloneAll = Array.from(clone.querySelectorAll<HTMLElement>('*')) as HTMLElement[];
-    cloneAll.forEach((c) => {
-      try {
-        c.style.overflow = 'visible';
-        c.style.overflowY = 'visible';
-        c.style.overflowX = 'visible';
-        c.style.maxHeight = 'none';
-        c.style.height = 'auto';
-      } catch (e) {
-        // ignore
-      }
-    });
+    const renderIcons = (arr: string[]) => arr.slice(0, 5).map((hero) => heroImgHtml(hero)).join('');
 
-    // Remove class attributes from cloned nodes so tailwind max-height/overflow classes don't reapply
-    try {
-      clone.removeAttribute('class');
-      cloneAll.forEach((c) => c.removeAttribute('class'));
-    } catch (e) {
-      // ignore
-    }
+    const rows = draftReportMatches.map((r) => {
+      const teamBans = (r.bans || []).slice(0, 5);
+      const teamPicks = (r.picks || []).slice(0, 5);
+      const oppBans = (r.oppBans || []).slice(0, 5);
+      const oppPicks = (r.oppPicks || []).slice(0, 5);
 
-    // Also inline root computed styles for body/font fallback
-    const docStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-      .map((el) => el.outerHTML)
-      .join('\n');
+      return `
+        <div class="match-card">
+          <div class="meta-row">
+            <span class="meta-id">${r.matchId || 'Match'}</span>
+            <span class="meta-opp">${r.opponent || 'Opponent'}</span>
+          </div>
+          <div class="team-row">
+            <div class="team-label">${selectedTeam?.name || 'Team'}</div>
+            <div class="icons-row">${renderIcons(teamBans)}</div>
+            <div class="icons-row">${renderIcons(teamPicks)}</div>
+          </div>
+          <div class="team-row opp">
+            <div class="team-label">${r.opponent || 'Opp'}</div>
+            <div class="icons-row">${renderIcons(oppBans)}</div>
+            <div class="icons-row">${renderIcons(oppPicks)}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
 
-    // Preserve root/body classes (e.g., Tailwind's dark mode) and body background/font styles
-    const rootClass = document.documentElement.className || '';
-    const bodyClass = document.body.className || '';
-    let bodyInline = '';
-    try {
-      const bcs = window.getComputedStyle(document.body);
-      const props = ['background-color', 'color', 'font-family', 'font-size', 'line-height'];
-      bodyInline = props.map(p => `${p}: ${bcs.getPropertyValue(p)};`).join(' ');
-    } catch (e) {
-      bodyInline = '';
-    }
-
-    const printScript = `
-      function waitImagesAndPrint(){
-        const imgs = Array.from(document.images);
-        if(imgs.length===0){ window.print(); return; }
-        let loaded = 0; const total = imgs.length;
-        const check = ()=>{ loaded++; if(loaded>=total) window.print(); };
-        imgs.forEach(img=>{ if(img.complete) check(); else { img.addEventListener('load', check); img.addEventListener('error', check); } });
-        setTimeout(()=>{ if(loaded<total) window.print(); }, 1500);
-      }
-      window.onload = function(){ setTimeout(waitImagesAndPrint, 50); };
+    const html = `
+      <!doctype html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Draft Report</title>
+        <style>
+          @page { size: A4 landscape; margin: 8mm; }
+          body { margin: 0; padding: 6mm; font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #111; background: #fff; }
+          .wrap { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+          .match-card { border: 1px solid #999; border-radius: 6px; padding: 6px; font-size: 9px; line-height: 1.1; page-break-inside: avoid; break-inside: avoid; }
+          .meta-row { display: flex; justify-content: space-between; gap: 4px; font-weight: 700; margin-bottom: 4px; }
+          .meta-id, .meta-opp { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+          .team-row { display: grid; gap: 2px; }
+          .team-row.opp { text-align: right; }
+          .team-label { font-size: 8px; font-weight: 700; margin-bottom: 2px; }
+          .icons-row { display: flex; gap: 3px; flex-wrap: wrap; }
+          img, .icons-row div { width: 20px; height: 20px; }
+          .icons-row div { display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: #444; background: #eee; border: 1px solid #bbb; border-radius: 4px; }
+          @media print { body { padding: 0; } .match-card { border-color: #666; } }
+        </style>
+      </head>
+      <body>
+        <div class="wrap">
+          ${rows}
+        </div>
+        <script>window.onload=function(){setTimeout(()=>window.print(),100);};</script>
+      </body>
+      </html>
     `;
-
-    const extraPrintCss = `<style>@media print{ .print-expanded *{max-height:none !important; overflow:visible !important;} .wrap{display:block; width:100% !important;} .match-row, .print-page{page-break-inside:avoid;break-inside:avoid;} .print-page{page-break-after:always; width:100%;} html,body{height:auto !important;} img{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }</style>`;
-
-    // Add explicit @page rules (A4 landscape) to encourage correct pagination/scale in browser print dialog
-    const pageRule = `<style>@page{ size: A4 landscape; margin:8mm; }</style>`;
-
-    // Paginate by measuring a match-row and grouping rows per A4 landscape printable height
-    let bodyContentHtml = clone.outerHTML;
-    try {
-      const mmToPx = (mm: number) => mm * (96 / 25.4);
-      const pagePrintableMm = 210 - 16; // A4 short side (210mm) minus 8mm margins top+bottom each
-      const printablePx = mmToPx(pagePrintableMm);
-      const sampleRow = preview.querySelector('.match-row') as HTMLElement | null;
-      const rowHeight = sampleRow ? sampleRow.getBoundingClientRect().height : 160;
-      const rowsPerPage = Math.max(1, Math.floor(printablePx / rowHeight));
-
-      const cloneRows = Array.from(clone.querySelectorAll('.match-row')) as HTMLElement[];
-      if (cloneRows.length > 0) {
-        const pagesContainer = document.createElement('div');
-        pagesContainer.className = 'print-pages';
-        for (let i = 0; i < cloneRows.length; i += rowsPerPage) {
-          const pageWrap = document.createElement('div');
-          pageWrap.className = 'print-page';
-          const chunk = cloneRows.slice(i, i + rowsPerPage);
-          chunk.forEach((r) => pageWrap.appendChild(r));
-          pagesContainer.appendChild(pageWrap);
-        }
-        bodyContentHtml = pagesContainer.outerHTML;
-      }
-    } catch (e) {
-      // fallback to whole clone if pagination fails
-      bodyContentHtml = clone.outerHTML;
-    }
-
-    const html = `<!doctype html><html class="${rootClass}"><head><meta charset="utf-8"/><title>Draft Report</title>${docStyles}${pageRule}${extraPrintCss}<style>@media print{@page{margin:12mm}}</style></head><body class="${bodyClass}" style="${bodyInline}">${bodyContentHtml}<script>${printScript}</script></body></html>`;
 
     const w = window.open('', '_blank');
     if (w) {
