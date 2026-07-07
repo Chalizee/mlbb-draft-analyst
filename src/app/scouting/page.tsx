@@ -356,6 +356,21 @@ export default function ScoutingPage() {
       }
     }
 
+    // Remove scrolling/max-height constraints in the clone so all content is visible for printing
+    clone.classList.add('print-expanded');
+    const cloneAll = Array.from(clone.querySelectorAll<HTMLElement>('*')) as HTMLElement[];
+    cloneAll.forEach((c) => {
+      try {
+        c.style.overflow = 'visible';
+        c.style.overflowY = 'visible';
+        c.style.overflowX = 'visible';
+        c.style.maxHeight = 'none';
+        c.style.height = 'auto';
+      } catch (e) {
+        // ignore
+      }
+    });
+
     // Also inline root computed styles for body/font fallback
     const docStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
       .map((el) => el.outerHTML)
@@ -385,7 +400,9 @@ export default function ScoutingPage() {
       window.onload = function(){ setTimeout(waitImagesAndPrint, 50); };
     `;
 
-    const html = `<!doctype html><html class="${rootClass}"><head><meta charset="utf-8"/><title>Draft Report</title>${docStyles}<style>@media print{@page{margin:12mm}}</style></head><body class="${bodyClass}" style="${bodyInline}">${clone.outerHTML}<script>${printScript}</script></body></html>`;
+    const extraPrintCss = `<style>@media print{ .print-expanded *{max-height:none !important; overflow:visible !important;} .wrap{display:block;} .match-row{page-break-inside:avoid;break-inside:avoid;} }</style>`;
+
+    const html = `<!doctype html><html class="${rootClass}"><head><meta charset="utf-8"/><title>Draft Report</title>${docStyles}${extraPrintCss}<style>@media print{@page{margin:12mm}}</style></head><body class="${bodyClass}" style="${bodyInline}">${clone.outerHTML}<script>${printScript}</script></body></html>`;
 
     const w = window.open('', '_blank');
     if (w) {
