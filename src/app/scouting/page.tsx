@@ -361,6 +361,18 @@ export default function ScoutingPage() {
       .map((el) => el.outerHTML)
       .join('\n');
 
+    // Preserve root/body classes (e.g., Tailwind's dark mode) and body background/font styles
+    const rootClass = document.documentElement.className || '';
+    const bodyClass = document.body.className || '';
+    let bodyInline = '';
+    try {
+      const bcs = window.getComputedStyle(document.body);
+      const props = ['background-color', 'color', 'font-family', 'font-size', 'line-height'];
+      bodyInline = props.map(p => `${p}: ${bcs.getPropertyValue(p)};`).join(' ');
+    } catch (e) {
+      bodyInline = '';
+    }
+
     const printScript = `
       function waitImagesAndPrint(){
         const imgs = Array.from(document.images);
@@ -373,7 +385,7 @@ export default function ScoutingPage() {
       window.onload = function(){ setTimeout(waitImagesAndPrint, 50); };
     `;
 
-    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Draft Report</title>${docStyles}<style>@media print{@page{margin:12mm}}</style></head><body>${clone.outerHTML}<script>${printScript}</script></body></html>`;
+    const html = `<!doctype html><html class="${rootClass}"><head><meta charset="utf-8"/><title>Draft Report</title>${docStyles}<style>@media print{@page{margin:12mm}}</style></head><body class="${bodyClass}" style="${bodyInline}">${clone.outerHTML}<script>${printScript}</script></body></html>`;
 
     const w = window.open('', '_blank');
     if (w) {
