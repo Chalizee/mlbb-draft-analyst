@@ -326,6 +326,104 @@ export default function ScoutingPage() {
     );
   };
 
+  // Open a compact, print-optimized window for draft report (compact layout)
+  const printDraftReport = () => {
+    if (!draftReportMatches || draftReportMatches.length === 0) {
+      alert('No draft matches available to print.');
+      return;
+    }
+
+    const teamName = selectedTeam?.name || 'Team';
+    const rows = draftReportMatches.map((r) => {
+      const firstPick = r.picks[0] || '-';
+      const secondPick = r.picks[1] || '-';
+      const oppFirst = r.oppPicks[0] || '-';
+      const oppSecond = r.oppPicks[1] || '-';
+      const bans = (r.bans && r.bans.length > 0) ? r.bans.join(', ') : '-';
+      const oppBans = (r.oppBans && r.oppBans.length > 0) ? r.oppBans.join(', ') : '-';
+
+      return `
+        <div class="card">
+          <div class="hdr">
+            <div class="title">${r.matchId || 'Match'}</div>
+            <div class="meta">${r.date || ''} • ${r.opponent || ''} • ${r.result || ''}</div>
+          </div>
+
+          <div class="cols">
+            <!-- Left: Team First Pick + Bans -->
+            <div class="side left">
+              <div class="big">${firstPick}</div>
+              <div class="label">Bans</div>
+              <div class="small">${bans}</div>
+            </div>
+
+            <!-- Center: Meta + Opponent First/Second Picks -->
+            <div class="center">
+              <div class="opp-picks">
+                <div class="opp-label">Opp 1st</div>
+                <div class="opp-hero">${oppFirst}</div>
+                <div class="opp-label">Opp 2nd</div>
+                <div class="opp-hero">${oppSecond}</div>
+              </div>
+            </div>
+
+            <!-- Right: Team Second Pick + Opponent Bans -->
+            <div class="side right">
+              <div class="big">${secondPick}</div>
+              <div class="label">Opp Bans</div>
+              <div class="small">${oppBans}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const html = `
+      <!doctype html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Draft Report — ${teamName}</title>
+        <style>
+          @media print { @page { margin: 12mm; } }
+          body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; color: #111; padding: 12px; }
+          .wrap { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+          .card { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 8px; page-break-inside: avoid; }
+          .hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+          .title { font-weight:700; font-size:12px; }
+          .meta { font-size:10px; color:#555; }
+          .cols { display:grid; grid-template-columns: 1fr auto 1fr; gap:10px; align-items:center; }
+          .side { text-align:center; }
+          .side .big { font-weight:800; font-size:18px; margin-bottom:6px; }
+          .label { font-size:9px; color:#777; text-transform:uppercase; margin-bottom:4px; }
+          .small { font-size:11px; color:#222; margin-bottom:4px; }
+          .center { text-align:center; font-size:11px; color:#444; }
+          .opp-picks { display:flex; flex-direction:column; gap:6px; align-items:center; }
+          .opp-label { font-size:9px; color:#777; text-transform:uppercase; }
+          .opp-hero { font-weight:700; font-size:13px; }
+          @media (max-width:900px) { .wrap { grid-template-columns: 1fr; } .cols { grid-template-columns: 1fr 1fr; } }
+        </style>
+      </head>
+      <body>
+        <h2 style="margin:0 0 8px 0;">Draft Report — ${teamName}</h2>
+        <div style="font-size:12px;color:#444;margin-bottom:10px;">${draftReportMatches.length} matches</div>
+        <div class="wrap">
+          ${rows}
+        </div>
+        <script>window.onload = function(){ setTimeout(()=>window.print(),200); };</script>
+      </body>
+      </html>
+    `;
+
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+    } else {
+      alert('Unable to open print window. Please allow popups for this site.');
+    }
+  };
+
   // Fetch MDL ID S12 dynamic Google sheet data
   const handleFetchLiveGoogleData = useCallback(async () => {
     Promise.resolve().then(() => {
@@ -1270,7 +1368,7 @@ export default function ScoutingPage() {
                       <p className="text-sm text-text-secondary">Print-ready draft bans and picks from the team match CSV you uploaded in Scouting Portal.</p>
                       <p className="text-[10px] text-text-muted font-mono uppercase tracking-wider mt-1">Uses Match ID + ban/pick columns from the uploaded team summary CSV, with scrim data only as fallback.</p>
                     </div>
-                    <Button variant="primary" className="h-10 text-xs" onClick={() => window.print()}>
+                    <Button variant="primary" className="h-10 text-xs" onClick={printDraftReport}>
                       🖨️ Print Report
                     </Button>
                   </div>
