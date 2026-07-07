@@ -345,45 +345,42 @@ export default function ScoutingPage() {
     };
 
     const rows = draftReportMatches.map((r) => {
-      const firstPick = r.picks[0] || '';
-      const secondPick = r.picks[1] || '';
-      const oppFirst = r.oppPicks[0] || '';
-      const oppSecond = r.oppPicks[1] || '';
-      const bans = (r.bans && r.bans.length > 0) ? r.bans.join(', ') : '—';
-      const oppBans = (r.oppBans && r.oppBans.length > 0) ? r.oppBans.join(', ') : '—';
+      const teamBans = (r.bans || []).slice(0,5);
+      const teamPicks = (r.picks || []).slice(0,5);
+      const oppBans = (r.oppBans || []).slice(0,5);
+      const oppPicks = (r.oppPicks || []).slice(0,5);
+
+      const renderAvatars = (arr: string[]) => arr.map((h) => `${heroImgHtml(h)}<div class="lbl">${h || ''}</div>`).join('');
 
       return `
-        <div class="card">
-          <div class="hdr">
-            <div style="display:flex;flex-direction:column;gap:6px;">
-              <div class="title">${r.matchId || 'Match'}</div>
-              <div class="team-name">${teamName}</div>
+        <div class="match-row">
+          <div class="card-side">
+            <div class="card-hdr">
+              <div class="small-muted">TEAM DRAFT</div>
+              <div class="team-title">${teamName}</div>
             </div>
-            <div class="meta">${r.date || ''} • ${r.opponent || ''} • ${r.result || ''}</div>
+            <div class="section">
+              <div class="sec-title">BANS</div>
+              <div class="avatars">${renderAvatars(teamBans)}</div>
+            </div>
+            <div class="section">
+              <div class="sec-title">PICKS</div>
+              <div class="avatars">${renderAvatars(teamPicks)}</div>
+            </div>
           </div>
 
-          <div class="cols">
-            <div class="side left">
-              ${heroImgHtml(firstPick)}
-              <div class="label">1st Pick</div>
-              <div class="label" style="font-size:10px;color:#666;margin-top:6px;">Bans</div>
-              <div class="small">${bans}</div>
+          <div class="card-side opp">
+            <div class="card-hdr">
+              <div class="small-muted">OPPONENT DRAFT</div>
+              <div class="team-title">${r.opponent || 'Opponent'}</div>
             </div>
-
-            <div class="center">
-              <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">
-                <div class="opp-label">Opp 1st</div>
-                ${heroImgHtml(oppFirst)}
-                <div class="opp-label">Opp 2nd</div>
-                ${heroImgHtml(oppSecond)}
-              </div>
+            <div class="section">
+              <div class="sec-title">BANS</div>
+              <div class="avatars">${renderAvatars(oppBans)}</div>
             </div>
-
-            <div class="side right">
-              ${heroImgHtml(secondPick)}
-              <div class="label">2nd Pick</div>
-              <div class="label" style="font-size:10px;color:#666;margin-top:6px;">Opp Bans</div>
-              <div class="small">${oppBans}</div>
+            <div class="section">
+              <div class="sec-title">PICKS</div>
+              <div class="avatars">${renderAvatars(oppPicks)}</div>
             </div>
           </div>
         </div>
@@ -399,21 +396,20 @@ export default function ScoutingPage() {
         <style>
           @media print { @page { margin: 12mm; } }
           body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; color: #111; padding: 12px; }
-          .wrap { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-          .card { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 8px; page-break-inside: avoid; }
-          .hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
-          .title { font-weight:700; font-size:12px; }
-          .meta { font-size:10px; color:#555; }
-          .cols { display:grid; grid-template-columns: 1fr auto 1fr; gap:10px; align-items:center; }
-          .side { text-align:center; }
-          .side .big { font-weight:800; font-size:18px; margin-bottom:6px; }
-          .label { font-size:9px; color:#777; text-transform:uppercase; margin-bottom:4px; }
-          .small { font-size:11px; color:#222; margin-bottom:4px; }
-          .center { text-align:center; font-size:11px; color:#444; }
-          .opp-picks { display:flex; flex-direction:column; gap:6px; align-items:center; }
-          .opp-label { font-size:9px; color:#777; text-transform:uppercase; }
-          .opp-hero { font-weight:700; font-size:13px; }
-          @media (max-width:900px) { .wrap { grid-template-columns: 1fr; } .cols { grid-template-columns: 1fr 1fr; } }
+          .wrap { display:block; }
+          .match-row { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:8px; page-break-inside:avoid; }
+          .card-side { background:#fff;border:1px solid #e3e3e3;border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px; }
+          .card-side.opp { text-align:right; }
+          .card-hdr { display:flex;justify-content:space-between;align-items:center; }
+          .small-muted { font-size:10px;color:#777;font-weight:700;letter-spacing:0.6px;text-transform:uppercase; }
+          .team-title { font-weight:800;font-size:13px;margin-top:2px; }
+          .section { display:flex;flex-direction:column;gap:6px; }
+          .sec-title { font-size:10px;color:#666;font-weight:700;letter-spacing:0.6px;text-transform:uppercase; }
+          .avatars { display:flex;gap:6px;flex-wrap:wrap;align-items:center; }
+          .avatars .lbl { font-size:9px;color:#444;text-align:center;margin-top:4px; }
+          img { width:30px;height:30px;border-radius:50%;object-fit:cover;border:1px solid #ddd; }
+          .lbl { width:48px; font-size:9px; color:#333; text-align:center; }
+          @media (max-width:900px) { .match-row{grid-template-columns:1fr;} }
         </style>
       </head>
       <body>
