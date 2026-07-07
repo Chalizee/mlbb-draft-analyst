@@ -353,8 +353,13 @@ export default function ScoutingPage() {
       const oppBans = (r.oppBans || []).slice(0, 5);
       const oppPicks = (r.oppPicks || []).slice(0, 5);
       const side = normalizeSide(r.side);
-      const teamPickLabel = side === 'blue' ? '2nd Pick' : '1st Pick';
-      const oppPickLabel = side === 'blue' ? '1st Pick' : '2nd Pick';
+      const teamIsSecond = side === 'blue';
+      const firstPickName = teamIsSecond ? (r.opponent || 'Opp') : (selectedTeam?.name || 'Team');
+      const secondPickName = teamIsSecond ? (selectedTeam?.name || 'Team') : (r.opponent || 'Opp');
+      const firstPickBans = teamIsSecond ? oppBans : teamBans;
+      const firstPickPicks = teamIsSecond ? oppPicks : teamPicks;
+      const secondPickBans = teamIsSecond ? teamBans : oppBans;
+      const secondPickPicks = teamIsSecond ? teamPicks : oppPicks;
 
       return `
         <div class="match-card">
@@ -362,15 +367,17 @@ export default function ScoutingPage() {
             <span class="meta-id">${r.matchId || 'Match'}</span>
             <span class="meta-opp">${r.opponent || 'Opponent'}</span>
           </div>
-          <div class="team-row">
-            <div class="team-label">${selectedTeam?.name || 'Team'} • ${teamPickLabel}</div>
-            <div class="icons-row">${renderIcons(teamBans)}</div>
-            <div class="icons-row">${renderIcons(teamPicks)}</div>
-          </div>
-          <div class="team-row opp">
-            <div class="team-label">${r.opponent || 'Opp'} • ${oppPickLabel}</div>
-            <div class="icons-row">${renderIcons(oppBans)}</div>
-            <div class="icons-row">${renderIcons(oppPicks)}</div>
+          <div class="grid-row">
+            <div class="team-block first">
+              <div class="team-label">1st Pick • ${firstPickName}</div>
+              <div class="icons-row">${renderIcons(firstPickBans)}</div>
+              <div class="icons-row">${renderIcons(firstPickPicks)}</div>
+            </div>
+            <div class="team-block second">
+              <div class="team-label">2nd Pick • ${secondPickName}</div>
+              <div class="icons-row">${renderIcons(secondPickBans)}</div>
+              <div class="icons-row">${renderIcons(secondPickPicks)}</div>
+            </div>
           </div>
         </div>
       `;
@@ -389,10 +396,12 @@ export default function ScoutingPage() {
           .match-card { border: 1px solid #999; border-radius: 6px; padding: 6px; font-size: 9px; line-height: 1.1; page-break-inside: avoid; break-inside: avoid; }
           .meta-row { display: flex; justify-content: space-between; gap: 4px; font-weight: 700; margin-bottom: 4px; }
           .meta-id, .meta-opp { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
-          .team-row { display: grid; gap: 2px; }
-          .team-row.opp { text-align: right; }
+          .grid-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+          .team-block { display: grid; gap: 2px; }
+          .team-block.second { text-align: right; }
           .team-label { font-size: 8px; font-weight: 700; margin-bottom: 2px; }
-          .icons-row { display: flex; gap: 3px; flex-wrap: wrap; }
+          .icons-row { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-start; }
+          .team-block.second .icons-row { justify-content: flex-end; }
           img, .icons-row div { width: 20px; height: 20px; }
           .icons-row div { display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: #444; background: #eee; border: 1px solid #bbb; border-radius: 4px; }
           @media print { body { padding: 0; } .match-card { border-color: #666; } }
