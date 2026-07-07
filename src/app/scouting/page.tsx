@@ -408,7 +408,7 @@ export default function ScoutingPage() {
       window.onload = function(){ setTimeout(waitImagesAndPrint, 50); };
     `;
 
-    const extraPrintCss = `<style>@media print{ .print-expanded *{max-height:none !important; overflow:visible !important;} .wrap{display:block; width:100% !important;} .match-row{page-break-inside:avoid;break-inside:avoid; page-break-after:auto;} html,body{height:auto !important;} img{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }</style>`;
+    const extraPrintCss = `<style>@media print{ .print-expanded *{max-height:none !important; overflow:visible !important;} .wrap{display:block; width:100% !important;} .match-row{page-break-inside:avoid;break-inside:avoid; page-break-after:auto;} .print-page{height:194mm; box-sizing:border-box; page-break-after:always; width:100%;} html,body{height:auto !important;} img{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }</style>`;
 
     // Add explicit @page rules (A4 landscape) to encourage correct pagination/scale in browser print dialog
     const pageRule = `<style>@page{ size: A4 landscape; margin:8mm; }</style>`;
