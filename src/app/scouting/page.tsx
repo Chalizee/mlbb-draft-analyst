@@ -344,6 +344,7 @@ export default function ScoutingPage() {
       return `<div style="width:20px;height:20px;border-radius:4px;background:#ddd;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#444;border:1px solid #bbb;">${letter}</div>`;
     };
 
+    const normalizeSide = (side?: string) => (side || '').trim().toLowerCase();
     const renderIcons = (arr: string[]) => arr.slice(0, 5).map((hero) => heroImgHtml(hero)).join('');
 
     const rows = draftReportMatches.map((r) => {
@@ -351,6 +352,9 @@ export default function ScoutingPage() {
       const teamPicks = (r.picks || []).slice(0, 5);
       const oppBans = (r.oppBans || []).slice(0, 5);
       const oppPicks = (r.oppPicks || []).slice(0, 5);
+      const side = normalizeSide(r.side);
+      const teamPickLabel = side === 'blue' ? '2nd Pick' : '1st Pick';
+      const oppPickLabel = side === 'blue' ? '1st Pick' : '2nd Pick';
 
       return `
         <div class="match-card">
@@ -359,12 +363,12 @@ export default function ScoutingPage() {
             <span class="meta-opp">${r.opponent || 'Opponent'}</span>
           </div>
           <div class="team-row">
-            <div class="team-label">${selectedTeam?.name || 'Team'}</div>
+            <div class="team-label">${selectedTeam?.name || 'Team'} • ${teamPickLabel}</div>
             <div class="icons-row">${renderIcons(teamBans)}</div>
             <div class="icons-row">${renderIcons(teamPicks)}</div>
           </div>
           <div class="team-row opp">
-            <div class="team-label">${r.opponent || 'Opp'}</div>
+            <div class="team-label">${r.opponent || 'Opp'} • ${oppPickLabel}</div>
             <div class="icons-row">${renderIcons(oppBans)}</div>
             <div class="icons-row">${renderIcons(oppPicks)}</div>
           </div>
