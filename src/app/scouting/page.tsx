@@ -334,43 +334,55 @@ export default function ScoutingPage() {
     }
 
     const teamName = selectedTeam?.name || 'Team';
+
+    const heroImgHtml = (name?: string) => {
+      const url = name ? getHeroImageUrl(name) : undefined;
+      if (url) {
+        return `<img src="${url}" alt="${name}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid #ddd;display:block;margin:0 auto;"/>`;
+      }
+      const letter = name ? name.charAt(0).toUpperCase() : '?';
+      return `<div style="width:44px;height:44px;border-radius:50%;background:#efefef;display:flex;align-items:center;justify-content:center;font-weight:700;color:#333;border:1px solid #ddd;margin:0 auto;">${letter}</div>`;
+    };
+
     const rows = draftReportMatches.map((r) => {
-      const firstPick = r.picks[0] || '-';
-      const secondPick = r.picks[1] || '-';
-      const oppFirst = r.oppPicks[0] || '-';
-      const oppSecond = r.oppPicks[1] || '-';
-      const bans = (r.bans && r.bans.length > 0) ? r.bans.join(', ') : '-';
-      const oppBans = (r.oppBans && r.oppBans.length > 0) ? r.oppBans.join(', ') : '-';
+      const firstPick = r.picks[0] || '';
+      const secondPick = r.picks[1] || '';
+      const oppFirst = r.oppPicks[0] || '';
+      const oppSecond = r.oppPicks[1] || '';
+      const bans = (r.bans && r.bans.length > 0) ? r.bans.join(', ') : '—';
+      const oppBans = (r.oppBans && r.oppBans.length > 0) ? r.oppBans.join(', ') : '—';
 
       return `
         <div class="card">
           <div class="hdr">
-            <div class="title">${r.matchId || 'Match'}</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div class="title">${r.matchId || 'Match'}</div>
+              <div class="team-name">${teamName}</div>
+            </div>
             <div class="meta">${r.date || ''} • ${r.opponent || ''} • ${r.result || ''}</div>
           </div>
 
           <div class="cols">
-            <!-- Left: Team First Pick + Bans -->
             <div class="side left">
-              <div class="big">${firstPick}</div>
-              <div class="label">Bans</div>
+              ${heroImgHtml(firstPick)}
+              <div class="label">1st Pick</div>
+              <div class="label" style="font-size:10px;color:#666;margin-top:6px;">Bans</div>
               <div class="small">${bans}</div>
             </div>
 
-            <!-- Center: Meta + Opponent First/Second Picks -->
             <div class="center">
-              <div class="opp-picks">
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">
                 <div class="opp-label">Opp 1st</div>
-                <div class="opp-hero">${oppFirst}</div>
+                ${heroImgHtml(oppFirst)}
                 <div class="opp-label">Opp 2nd</div>
-                <div class="opp-hero">${oppSecond}</div>
+                ${heroImgHtml(oppSecond)}
               </div>
             </div>
 
-            <!-- Right: Team Second Pick + Opponent Bans -->
             <div class="side right">
-              <div class="big">${secondPick}</div>
-              <div class="label">Opp Bans</div>
+              ${heroImgHtml(secondPick)}
+              <div class="label">2nd Pick</div>
+              <div class="label" style="font-size:10px;color:#666;margin-top:6px;">Opp Bans</div>
               <div class="small">${oppBans}</div>
             </div>
           </div>
