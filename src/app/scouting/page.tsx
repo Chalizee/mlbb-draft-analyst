@@ -328,96 +328,19 @@ export default function ScoutingPage() {
 
   // Open a compact, print-optimized window for draft report (compact layout)
   const printDraftReport = () => {
-    if (!draftReportMatches || draftReportMatches.length === 0) {
-      alert('No draft matches available to print.');
+    if (typeof window === 'undefined') return;
+    const preview = document.getElementById('draft-report-preview');
+    if (!preview) {
+      alert('Preview not found — please open the Draft Report modal first.');
       return;
     }
 
-    const teamName = selectedTeam?.name || 'Team';
+    // Copy current styles (link and style tags) so the printed output matches the preview
+    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+      .map((el) => el.outerHTML)
+      .join('\n');
 
-    const heroImgHtml = (name?: string) => {
-      const url = name ? getHeroImageUrl(name) : undefined;
-      if (url) {
-        return `<img src="${url}" alt="${name}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid #ddd;display:block;margin:0 auto;"/>`;
-      }
-      const letter = name ? name.charAt(0).toUpperCase() : '?';
-      return `<div style="width:44px;height:44px;border-radius:50%;background:#efefef;display:flex;align-items:center;justify-content:center;font-weight:700;color:#333;border:1px solid #ddd;margin:0 auto;">${letter}</div>`;
-    };
-
-    const rows = draftReportMatches.map((r) => {
-      const teamBans = (r.bans || []).slice(0,5);
-      const teamPicks = (r.picks || []).slice(0,5);
-      const oppBans = (r.oppBans || []).slice(0,5);
-      const oppPicks = (r.oppPicks || []).slice(0,5);
-
-      const renderAvatars = (arr: string[]) => arr.map((h) => `${heroImgHtml(h)}`).join('');
-
-      return `
-        <div class="match-row">
-          <div class="card-side">
-            <div class="card-hdr">
-              <div class="small-muted">TEAM DRAFT</div>
-              <div class="team-title">${teamName}</div>
-            </div>
-            <div class="section">
-              <div class="sec-title">BANS</div>
-              <div class="avatars">${renderAvatars(teamBans)}</div>
-            </div>
-            <div class="section">
-              <div class="sec-title">PICKS</div>
-              <div class="avatars">${renderAvatars(teamPicks)}</div>
-            </div>
-          </div>
-
-          <div class="card-side opp">
-            <div class="card-hdr">
-              <div class="small-muted">OPPONENT DRAFT</div>
-              <div class="team-title">${r.opponent || 'Opponent'}</div>
-            </div>
-            <div class="section">
-              <div class="sec-title">BANS</div>
-              <div class="avatars">${renderAvatars(oppBans)}</div>
-            </div>
-            <div class="section">
-              <div class="sec-title">PICKS</div>
-              <div class="avatars">${renderAvatars(oppPicks)}</div>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    const html = `
-      <!doctype html>
-      <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>Draft Report — ${teamName}</title>
-        <style>
-          @media print { @page { margin: 12mm; } }
-          body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; color: #111; padding: 12px; }
-          .wrap { display:block; }
-          .match-row { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:8px; page-break-inside:avoid; }
-          .card-side { background:#fff;border:1px solid #e3e3e3;border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px; }
-          .card-side.opp { text-align:right; }
-          .card-hdr { display:flex;justify-content:space-between;align-items:center; }
-          .small-muted { font-size:10px;color:#777;font-weight:700;letter-spacing:0.6px;text-transform:uppercase; }
-          .team-title { font-weight:800;font-size:13px;margin-top:2px; }
-          .section { display:flex;flex-direction:column;gap:6px; }
-          .sec-title { font-size:10px;color:#666;font-weight:700;letter-spacing:0.6px;text-transform:uppercase; }
-          .avatars { display:flex;gap:6px;flex-wrap:wrap;align-items:center; }
-          img { width:24px;height:24px;border-radius:50%;object-fit:cover;border:1px solid #ddd; }
-          @media (max-width:900px) { .match-row{grid-template-columns:1fr;} }
-        </style>
-      </head>
-      <body>
-        <div class="wrap">
-          ${rows}
-        </div>
-        <script>window.onload = function(){ setTimeout(()=>window.print(),200); };</script>
-      </body>
-      </html>
-    `;
+    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Draft Report</title>${styles}<style>@media print{@page{margin:12mm}}</style></head><body>${preview.outerHTML}<script>window.onload=function(){setTimeout(()=>{window.print();},150)};</script></body></html>`;
 
     const w = window.open('', '_blank');
     if (w) {
@@ -1366,7 +1289,7 @@ export default function ScoutingPage() {
                 title={`Draft Ban / Pick Report — ${selectedTeam?.name || 'Imported Scrims'}`}
                 maxWidth="max-w-4xl"
               >
-                <div className="space-y-4">
+                <div id="draft-report-preview" className="space-y-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm text-text-secondary">Print-ready draft bans and picks from the team match CSV you uploaded in Scouting Portal.</p>
