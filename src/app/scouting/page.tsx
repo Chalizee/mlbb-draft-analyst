@@ -408,9 +408,12 @@ export default function ScoutingPage() {
       window.onload = function(){ setTimeout(waitImagesAndPrint, 50); };
     `;
 
-    const extraPrintCss = `<style>@media print{ .print-expanded *{max-height:none !important; overflow:visible !important;} .wrap{display:block;} .match-row{page-break-inside:auto;break-inside:auto;} }</style>`;
+    const extraPrintCss = `<style>@media print{ .print-expanded *{max-height:none !important; overflow:visible !important;} .wrap{display:block; width:100% !important;} .match-row{page-break-inside:avoid;break-inside:avoid; page-break-after:auto;} html,body{height:auto !important;} img{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }</style>`;
 
-    const html = `<!doctype html><html class="${rootClass}"><head><meta charset="utf-8"/><title>Draft Report</title>${docStyles}${extraPrintCss}<style>@media print{@page{margin:12mm}}</style></head><body class="${bodyClass}" style="${bodyInline}">${clone.outerHTML}<script>${printScript}</script></body></html>`;
+    // Add explicit @page rules (A4 landscape) to encourage correct pagination/scale in browser print dialog
+    const pageRule = `<style>@page{ size: A4 landscape; margin:8mm; }</style>`;
+
+    const html = `<!doctype html><html class="${rootClass}"><head><meta charset="utf-8"/><title>Draft Report</title>${docStyles}${pageRule}${extraPrintCss}<style>@media print{@page{margin:12mm}}</style></head><body class="${bodyClass}" style="${bodyInline}">${clone.outerHTML}<script>${printScript}</script></body></html>`;
 
     const w = window.open('', '_blank');
     if (w) {
