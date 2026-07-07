@@ -371,6 +371,14 @@ export default function ScoutingPage() {
       }
     });
 
+    // Remove class attributes from cloned nodes so tailwind max-height/overflow classes don't reapply
+    try {
+      clone.removeAttribute('class');
+      cloneAll.forEach((c) => c.removeAttribute('class'));
+    } catch (e) {
+      // ignore
+    }
+
     // Also inline root computed styles for body/font fallback
     const docStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
       .map((el) => el.outerHTML)
@@ -400,7 +408,7 @@ export default function ScoutingPage() {
       window.onload = function(){ setTimeout(waitImagesAndPrint, 50); };
     `;
 
-    const extraPrintCss = `<style>@media print{ .print-expanded *{max-height:none !important; overflow:visible !important;} .wrap{display:block;} .match-row{page-break-inside:avoid;break-inside:avoid;} }</style>`;
+    const extraPrintCss = `<style>@media print{ .print-expanded *{max-height:none !important; overflow:visible !important;} .wrap{display:block;} .match-row{page-break-inside:auto;break-inside:auto;} }</style>`;
 
     const html = `<!doctype html><html class="${rootClass}"><head><meta charset="utf-8"/><title>Draft Report</title>${docStyles}${extraPrintCss}<style>@media print{@page{margin:12mm}}</style></head><body class="${bodyClass}" style="${bodyInline}">${clone.outerHTML}<script>${printScript}</script></body></html>`;
 
