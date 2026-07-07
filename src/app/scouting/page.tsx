@@ -143,11 +143,30 @@ export default function ScoutingPage() {
 
   const splitDraftItems = (value?: string): string[] => {
     if (!value) return [];
-    return value
+    const tokens = value
       .split(/[;,/]/)
       .map((item) => item.trim())
       .filter(Boolean)
       .filter((item) => !['none', 'n/a', 'na'].includes(item.toLowerCase()));
+
+    const merged: string[] = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      const next = tokens[i + 1];
+      const normalizedToken = token.toLowerCase().replace(/\s+/g, '');
+      if (normalizedToken === 'wuzetian') {
+        merged.push('WU ZETIAN');
+        continue;
+      }
+      if (token.toLowerCase() === 'wu' && next?.toLowerCase().replace(/\s+/g, '') === 'zetian') {
+        merged.push('WU ZETIAN');
+        i += 1;
+        continue;
+      }
+      merged.push(token);
+    }
+
+    return merged;
   };
 
   const fetchDraftReportMatches = useCallback(async (teamName: string) => {
@@ -361,6 +380,14 @@ export default function ScoutingPage() {
       const secondPickBans = teamIsSecond ? teamBans : oppBans;
       const secondPickPicks = teamIsSecond ? teamPicks : oppPicks;
 
+      const result = (r.result || '').trim().toLowerCase();
+      const rawWin = /win|victory|胜/.test(result);
+      const rawLoss = /lose|loss|败|lost/.test(result);
+      const selectedTeamWon = rawWin ? selectedTeam?.name && (selectedTeam ? true : true) : rawLoss ? false : undefined;
+      const firstIsSelectedTeam = !teamIsSecond;
+      const firstColor = selectedTeamWon === undefined ? '#111' : firstIsSelectedTeam ? (selectedTeamWon ? '#008000' : '#c00000') : (selectedTeamWon ? '#c00000' : '#008000');
+      const secondColor = selectedTeamWon === undefined ? '#111' : firstIsSelectedTeam ? (selectedTeamWon ? '#c00000' : '#008000') : (selectedTeamWon ? '#008000' : '#c00000');
+
       return `
         <div class="match-card">
           <div class="meta-row">
@@ -369,12 +396,12 @@ export default function ScoutingPage() {
           </div>
           <div class="grid-row">
             <div class="team-block first">
-              <div class="team-label">1st Pick • ${firstPickName}</div>
+              <div class="team-label" style="color:${firstColor};">1st Pick • ${firstPickName}</div>
               <div class="icons-row">${renderIcons(firstPickBans)}</div>
               <div class="icons-row">${renderIcons(firstPickPicks)}</div>
             </div>
             <div class="team-block second">
-              <div class="team-label">2nd Pick • ${secondPickName}</div>
+              <div class="team-label" style="color:${secondColor};">2nd Pick • ${secondPickName}</div>
               <div class="icons-row">${renderIcons(secondPickBans)}</div>
               <div class="icons-row">${renderIcons(secondPickPicks)}</div>
             </div>
