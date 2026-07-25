@@ -11,7 +11,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [loading, setLoading] = useState<'password' | 'magic' | null>(null);
+  const [loading, setLoading] = useState<
+    'password' | 'magic' | 'recovery' | null
+  >(null);
 
   function getNextPath() {
     const requestedPath = new URLSearchParams(window.location.search).get('next');
@@ -82,6 +84,50 @@ export default function LoginPage() {
     }
 
     setNotice('Link login sudah dikirim. Cek inbox atau folder spam.');
+    setLoading(null);
+  }
+
+  async function sendPasswordRecovery() {
+    setError('');
+    setNotice('');
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setError('Masukkan email yang sudah diberi akses.');
+      return;
+    }
+
+    const supabase = createClient();
+    if (!supabase) {
+      setError('Secure workspace belum terhubung ke database.');
+      return;
+    }
+
+    const callbackUrl = new URL('/auth/callback', window.location.origin);
+    callbackUrl.searchParams.set('next', '/reset-password');
+
+    setLoading('recovery');
+    const { error: recoveryError } =
+      await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: callbackUrl.toString(),
+      });
+
+    if (recoveryError) {
+      const rateLimited =
+        recoveryError.status === 429 ||
+        recoveryError.code === 'over_email_send_rate_limit';
+      setError(
+        rateLimited
+          ? 'Jatah email Supabase sedang habis. Tunggu sekitar 1 jam lalu coba sekali lagi.'
+          : 'Link reset gagal dikirim. Tunggu sebentar lalu coba lagi.',
+      );
+      setLoading(null);
+      return;
+    }
+
+    setNotice(
+      'Link reset password sudah dikirim. Buka email paling baru dari Supabase.',
+    );
     setLoading(null);
   }
 
@@ -159,6 +205,16 @@ export default function LoginPage() {
               disabled={loading !== null}
             >
               {loading === 'password' ? 'Signing in…' : 'Masuk dengan password'}
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={sendPasswordRecovery}
+              disabled={loading !== null}
+            >
+              {loading === 'recovery'
+                ? 'Mengirim reset…'
+                : 'Lupa password? Kirim link reset'}
             </button>
           </form>
         )}
