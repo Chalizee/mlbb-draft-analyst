@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import {
   analyzeScoutingCSVs,
+  canonicalizeHeroName,
   normalizeSourceSide,
   overridePlayerRole,
   parseOrderedHeroList,
@@ -53,6 +54,48 @@ async function main() {
     'Hilda|Irithel|Suyou|Cyclops|Benedetta'
   ) {
     throw new Error('Left-to-right pick/ban order was not preserved.');
+  }
+
+  const zetianAliases = [
+    'Wu/Zetian',
+    'Wu Zetian',
+    'WU_ZETIAN',
+    'Zetian',
+  ].map(canonicalizeHeroName);
+  if (
+    new Set(zetianAliases).size !== 1 ||
+    zetianAliases[0] !== 'Zetian'
+  ) {
+    throw new Error('Wu Zetian aliases no longer merge into canonical Zetian.');
+  }
+
+  const aliasedDraft = parseOrderedHeroList(
+    'Wu/Zetian,Zetian,Hilda',
+  );
+  if (aliasedDraft.join('|') !== 'Zetian|Zetian|Hilda') {
+    throw new Error('Team draft aliases were not canonicalized in source order.');
+  }
+
+  const unmergedZetian = report.players.some((player) =>
+    player.heroes.some((hero) => /wu[^a-z0-9]*zetian/i.test(hero.name)),
+  );
+  if (unmergedZetian) {
+    throw new Error('A player profile still exposes Wu Zetian as a separate hero.');
+  }
+
+  const teamHeroNames = report.teams.flatMap((team) => [
+    ...team.topPicks,
+    ...team.topBans,
+    ...team.firstPhasePicks,
+    ...team.firstPhaseBans,
+  ]);
+  const unmergedTeamZetian =
+    teamHeroNames.some((hero) => /wu[^a-z0-9]*zetian/i.test(hero.name)) ||
+    report.contestedHeroes.some((hero) =>
+      /wu[^a-z0-9]*zetian/i.test(hero.name),
+    );
+  if (unmergedTeamZetian) {
+    throw new Error('A team draft statistic still exposes Wu Zetian separately.');
   }
 
   const mappedSideRows = report.teams.reduce(

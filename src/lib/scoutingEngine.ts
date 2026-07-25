@@ -198,6 +198,15 @@ interface ParsedCsv {
 
 const ROLES: ScoutingRole[] = ['EXP', 'JUNGLE', 'MID', 'GOLD', 'ROAM'];
 const ROLE_PERMUTATIONS = createPermutations(ROLES);
+const HERO_NAME_ALIASES: Record<string, string> = {
+  wuzetian: 'zetian',
+};
+const HERO_NAME_INDEX = new Map<string, string>();
+
+for (const hero of HERO_DATA) {
+  HERO_NAME_INDEX.set(normalizeName(hero.name), hero.name);
+  HERO_NAME_INDEX.set(normalizeName(hero.slug), hero.name);
+}
 
 const ROLE_WEIGHTS: Record<ScoutingRole, Partial<Record<MetricKey, number>>> = {
   EXP: {
@@ -446,7 +455,7 @@ function parsePlayerGame(csv: ParsedCsv, row: string[]): PlayerGame | null {
   const battleCode = getValue(csv, row, 'battleCode');
   const player = getValue(csv, row, 'player');
   const team = getValue(csv, row, 'team');
-  const hero = getValue(csv, row, 'hero');
+  const hero = canonicalizeHeroName(getValue(csv, row, 'hero'));
 
   if (!battleCode || !player || !team || !hero) return null;
 
@@ -1042,8 +1051,21 @@ function isWin(value: string): boolean {
 export function parseOrderedHeroList(value: string): string[] {
   return value
     .split(',')
-    .map((hero) => hero.trim())
+    .map(canonicalizeHeroName)
     .filter(Boolean);
+}
+
+/**
+ * Maps tournament-export aliases and formatting variants to the canonical
+ * global hero name used throughout player and team scouting statistics.
+ */
+export function canonicalizeHeroName(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  const normalized = normalizeName(trimmed);
+  const canonicalKey = HERO_NAME_ALIASES[normalized] ?? normalized;
+  return HERO_NAME_INDEX.get(canonicalKey) ?? trimmed;
 }
 
 function toNumber(value: string): number {
