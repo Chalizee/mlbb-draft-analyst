@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Chalize MLBB Scouting & Scrim Tracker
 
-## Getting Started
+A private workspace for scouting completed MLBB tournament exports and tracking
+your own team scrims.
 
-First, run the development server:
+## Current scope
+
+- Import `player_match_record.csv` and `team_match_record.csv`.
+- Validate aliases, incomplete drafts, result labels, and inferred roles.
+- Assign one EXP, Jungle, Mid, Gold, and Roam to every complete five-player lineup.
+- Rank players against the same role using role-specific metrics.
+- Shrink low-sample scores toward the role baseline.
+- Compare up to three players.
+- Review team side performance, first-phase priorities, and contested heroes.
+- Keep all imported data inside the browser. Nothing is shared automatically.
+- Create a scrim session with any number of games.
+- Record side, result, objectives, gold checkpoints, ordered drafts, and five
+  player box scores per game.
+- Calculate KDA, KP, GPM, DPM, durability, player trends, and opponent patterns.
+- Autosave scrim sessions to local IndexedDB and download a JSON backup.
+- Generate a concise session report that requires coach review before sharing.
+
+## Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`. Choose **Scouting** to upload tournament CSVs or
+**Scrims** to create a manual scrim session.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scoring guardrails
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The adjusted Impact score does not directly use win rate or KDA. Those values
+form a separate Surface score. Impact uses same-role percentiles for efficiency,
+activity, pressure, objectives, survival, and versatility.
 
-## Learn More
+The **Context boosted** signal means surface stats are meaningfully ahead of
+adjusted impact. It is a review flag, not proof that a player is overrated.
 
-To learn more about Next.js, take a look at the following resources:
+## Data storage
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Tournament imports and scrim records are stored in the current browser. Clearing
+browser site data can remove them, so download a scrim JSON backup periodically.
+No data is automatically uploaded or shared.
