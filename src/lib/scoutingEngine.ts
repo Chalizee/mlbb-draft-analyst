@@ -200,6 +200,7 @@ const ROLES: ScoutingRole[] = ['EXP', 'JUNGLE', 'MID', 'GOLD', 'ROAM'];
 const ROLE_PERMUTATIONS = createPermutations(ROLES);
 const HERO_NAME_ALIASES: Record<string, string> = {
   wuzetian: 'zetian',
+  phylax: 'edith',
 };
 const HERO_NAME_INDEX = new Map<string, string>();
 

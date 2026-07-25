@@ -1,7 +1,7 @@
 import type { Hero } from '@/types';
 
 /**
- * Seed data for 126 real MLBB heroes.
+ * Seed data for 127 real MLBB heroes.
  *
  * Every entry uses accurate primary role, secondary role, specialty,
  * recommended lanes, damage type, scaling type, and teamfight style
@@ -230,8 +230,20 @@ export const HERO_DATA: Omit<Hero, 'id'>[] = [
   },
 
   // ═══════════════════════════════════════
-  //  FIGHTERS (30)
+  //  FIGHTERS (31)
   // ═══════════════════════════════════════
+  {
+    name: 'Bane',
+    imageUrl: 'https://static.wikia.nocookie.net/mobile-legends/images/e/e7/Hero111-icon.png',
+    slug: 'bane',
+    role: 'Fighter',
+    secondaryRole: 'Mage',
+    specialty: 'Push / Burst',
+    laneRecommendation: ['EXP', 'Jungle'],
+    damageType: 'Mixed',
+    scalingType: 'Late',
+    teamfightStyle: 'Split',
+  },
   {
     name: 'Zilong',
     imageUrl: 'https://static.wikia.nocookie.net/mobile-legends/images/5/5f/Hero161-icon.png',
@@ -440,7 +452,7 @@ export const HERO_DATA: Omit<Hero, 'id'>[] = [
   },
   {
     name: 'Sora',
-    imageUrl: '/images/heroes/sora.png',
+    imageUrl: 'https://static.wikia.nocookie.net/mobile-legends/images/c/cc/Hero1311-icon.png',
     slug: 'sora',
     role: 'Fighter',
     specialty: 'Damage / Mobility',
@@ -1381,7 +1393,7 @@ export const HERO_DATA: Omit<Hero, 'id'>[] = [
   },
   {
     name: 'Kalea',
-    imageUrl: '/images/heroes/kalea.png',
+    imageUrl: 'https://static.wikia.nocookie.net/mobile-legends/images/5/56/Hero1281-icon.png',
     slug: 'kalea',
     role: 'Support',
     specialty: 'Heal / Guard',
@@ -1392,7 +1404,7 @@ export const HERO_DATA: Omit<Hero, 'id'>[] = [
   },
 
   // ═══════════════════════════════════════
-  //  ADDITIONAL HEROES (6 more → total 126)
+  //  ADDITIONAL / CURRENT ROSTER HEROES
   // ═══════════════════════════════════════
   {
     name: 'Minsitthar',
@@ -1440,16 +1452,15 @@ export const HERO_DATA: Omit<Hero, 'id'>[] = [
     teamfightStyle: 'Sustain',
   },
   {
-    name: 'Phylax',
-    imageUrl: 'https://static.wikia.nocookie.net/mobile-legends/images/3/36/Hero1101-icon.png',
-    slug: 'phylax',
-    role: 'Tank',
-    secondaryRole: 'Support',
-    specialty: 'Crowd Control / Guard',
-    laneRecommendation: ['Roam'],
-    damageType: 'Magic',
+    name: 'Hirara',
+    imageUrl: 'https://static.wikia.nocookie.net/mobile-legends/images/0/02/Hero1331-icon.png',
+    slug: 'hirara',
+    role: 'Assassin',
+    specialty: 'Burst / Chase',
+    laneRecommendation: ['Jungle'],
+    damageType: 'Physical',
     scalingType: 'Mid',
-    teamfightStyle: 'Protect',
+    teamfightStyle: 'Dive',
   },
   {
     name: 'Yin',
@@ -1476,7 +1487,7 @@ export const HERO_DATA: Omit<Hero, 'id'>[] = [
   },
   {
     name: 'Suyou',
-    imageUrl: '/images/heroes/suyou.png',
+    imageUrl: 'https://static.wikia.nocookie.net/mobile-legends/images/c/c4/Hero1261-icon.png',
     slug: 'suyou',
     role: 'Assassin',
     secondaryRole: 'Fighter',
@@ -1488,7 +1499,7 @@ export const HERO_DATA: Omit<Hero, 'id'>[] = [
   },
   {
     name: 'Lukas',
-    imageUrl: '/images/heroes/lukas.png',
+    imageUrl: 'https://static.wikia.nocookie.net/mobile-legends/images/1/1c/Hero1271-icon.png',
     slug: 'lukas',
     role: 'Fighter',
     specialty: 'Burst / Damage',
@@ -1499,7 +1510,7 @@ export const HERO_DATA: Omit<Hero, 'id'>[] = [
   },
   {
     name: 'Zetian',
-    imageUrl: '/images/heroes/zetian.png',
+    imageUrl: 'https://static.wikia.nocookie.net/mobile-legends/images/5/5c/Hero1291-icon.png',
     slug: 'zetian',
     role: 'Mage',
     specialty: 'Poke / Crowd Control',
@@ -1510,7 +1521,7 @@ export const HERO_DATA: Omit<Hero, 'id'>[] = [
   },
   {
     name: 'Obsidia',
-    imageUrl: '/images/heroes/obsidia.png',
+    imageUrl: 'https://static.wikia.nocookie.net/mobile-legends/images/9/9b/Hero1301-icon.png',
     slug: 'obsidia',
     role: 'Marksman',
     specialty: 'Reap / Damage',
@@ -1521,7 +1532,7 @@ export const HERO_DATA: Omit<Hero, 'id'>[] = [
   },
   {
     name: 'Marcel',
-    imageUrl: '/images/heroes/marcel.png',
+    imageUrl: 'https://static.wikia.nocookie.net/mobile-legends/images/e/ee/Hero1321-icon.png',
     slug: 'marcel',
     role: 'Support',
     specialty: 'Guard / Crowd Control',

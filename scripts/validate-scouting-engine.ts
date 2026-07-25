@@ -69,6 +69,10 @@ async function main() {
     throw new Error('Wu Zetian aliases no longer merge into canonical Zetian.');
   }
 
+  if (canonicalizeHeroName('Phylax') !== 'Edith') {
+    throw new Error('Legacy Phylax name no longer merges into canonical Edith.');
+  }
+
   const aliasedDraft = parseOrderedHeroList(
     'Wu/Zetian,Zetian,Hilda',
   );

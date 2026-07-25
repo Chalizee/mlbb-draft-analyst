@@ -1,8 +1,11 @@
 'use client';
 
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import HeroAvatar from '@/components/ui/HeroAvatar';
+import { HERO_DATA } from '@/data/heroData';
 import {
   analyzeScoutingCSVs,
+  canonicalizeHeroName,
   overridePlayerRole,
   type PlayerScoutingProfile,
   type ScoutingReport,
@@ -20,6 +23,12 @@ interface SavedWorkspace {
 
 const STORAGE_KEY = 'chalize-scouting-workspace-v1';
 const ROLES: Array<'ALL' | ScoutingRole> = ['ALL', 'EXP', 'JUNGLE', 'MID', 'GOLD', 'ROAM'];
+const HERO_VISUAL_INDEX = new Map(
+  HERO_DATA.flatMap((hero) => [
+    [normalizeHeroVisualKey(hero.name), hero],
+    [normalizeHeroVisualKey(hero.slug), hero],
+  ]),
+);
 
 export default function ScoutingPage() {
   const [workspace, setWorkspace] = useState<SavedWorkspace | null>(null);
@@ -631,7 +640,8 @@ function CompareView({
               <div>
                 {player.heroes.slice(0, 5).map((hero) => (
                   <span key={hero.name}>
-                    {hero.name} <small>{hero.games}</small>
+                    <HeroLabel name={hero.name} />
+                    <small>{hero.games}</small>
                   </span>
                 ))}
               </div>
@@ -1044,7 +1054,7 @@ function PlayerHeroPool({ player }: { player: PlayerScoutingProfile }) {
           <article key={hero.name}>
             <span>{String(index + 1).padStart(2, '0')}</span>
             <div>
-              <strong>{hero.name}</strong>
+              <HeroLabel name={hero.name} size="sm" />
               <small>
                 {hero.games} games · {Math.round((hero.games / totalGames) * 100)}% share
               </small>
@@ -1074,7 +1084,7 @@ function PlayerHeroPool({ player }: { player: PlayerScoutingProfile }) {
           <tbody>
             {player.heroes.map((hero) => (
               <tr key={hero.name}>
-                <td><strong>{hero.name}</strong></td>
+                <td><HeroLabel name={hero.name} /></td>
                 <td>{hero.games}</td>
                 <td>{hero.wins}-{hero.games - hero.wins}</td>
                 <td>{hero.winRate}%</td>
@@ -1163,7 +1173,7 @@ function PlayerMatchLog({ player }: { player: PlayerScoutingProfile }) {
                     {match.win ? 'WIN' : 'LOSS'}
                   </span>
                 </td>
-                <td><strong>{match.hero}</strong></td>
+                <td><HeroLabel name={match.hero} /></td>
                 <td>{match.kills} / {match.deaths} / {match.assists}</td>
                 <td>{match.kda}</td>
                 <td>{match.kp}%</td>
@@ -1426,7 +1436,7 @@ function TeamView({
           {contestedHeroes.slice(0, 12).map((hero, index) => (
             <div key={hero.name}>
               <span>{String(index + 1).padStart(2, '0')}</span>
-              <strong>{hero.name}</strong>
+              <HeroLabel name={hero.name} />
               <small>{hero.picks}P · {hero.bans}B</small>
               <b>{hero.presence}</b>
             </div>
@@ -1587,7 +1597,7 @@ function DraftList({
       {items.map((item, index) => (
         <div key={item.name}>
           <span>{index + 1}</span>
-          <strong>{item.name}</strong>
+          <HeroLabel name={item.name} />
           <i><b style={{ width: `${(item.count / max) * 100}%` }} /></i>
           <small>{item.count}</small>
         </div>
@@ -1605,4 +1615,33 @@ function formatBytes(bytes: number) {
 function initials(name: string) {
   const clean = name.replace(/[^a-zA-Z0-9]/g, '');
   return clean.slice(0, 2).toUpperCase() || 'P';
+}
+
+function normalizeHeroVisualKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function HeroLabel({
+  name,
+  size = 'xs',
+}: {
+  name: string;
+  size?: 'xs' | 'sm';
+}) {
+  const displayName = canonicalizeHeroName(name);
+  const hero = HERO_VISUAL_INDEX.get(normalizeHeroVisualKey(displayName));
+  const localAvatarUrl = hero
+    ? `/images/heroes/avatars/${hero.slug}.webp`
+    : undefined;
+
+  return (
+    <span className="scouting-hero-label">
+      <HeroAvatar
+        imageUrl={localAvatarUrl}
+        name={displayName}
+        size={size}
+      />
+      <span>{displayName}</span>
+    </span>
+  );
 }
