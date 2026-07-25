@@ -33,8 +33,11 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const signedIn = Boolean(data?.claims);
   const isLoginRoute = request.nextUrl.pathname === '/login';
+  const isAuthCallbackRoute =
+    request.nextUrl.pathname === '/auth/callback';
+  const isPublicAuthRoute = isLoginRoute || isAuthCallbackRoute;
 
-  if (!signedIn && !isLoginRoute) {
+  if (!signedIn && !isPublicAuthRoute) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = '/login';
     loginUrl.searchParams.set(
