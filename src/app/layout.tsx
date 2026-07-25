@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
-import Sidebar from '@/components/Sidebar';
+import AppShell from '@/components/AppShell';
 
 export const metadata: Metadata = {
   title: {
@@ -16,10 +16,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="dark">
       <body>
-        <div className="app-shell">
-          <Sidebar />
-          <main className="app-content">{children}</main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

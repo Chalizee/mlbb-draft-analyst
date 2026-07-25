@@ -10,13 +10,17 @@ import {
 import {
   createScrimGame,
   createScrimSession,
+  countUnsyncedLocalScrimSessions,
   formatHeroList,
   listScrimSessions,
+  migrateLocalScrimSessions,
   parseHeroList,
   playerDerivedStats,
+  resolveScrimAccess,
   safeRate,
   saveScrimSession,
   type ObjectiveOwner,
+  type ScrimAccess,
   type ScrimGame,
   type ScrimPlayerGame,
   type ScrimResult,
@@ -26,7 +30,12 @@ import {
 } from '@/lib/scrimDatabase';
 
 type ScrimView = 'overview' | 'editor' | 'players' | 'opponents';
-type SaveState = 'Saved' | 'Saving' | 'Local only';
+type SaveState =
+  | 'Saved online'
+  | 'Saving'
+  | 'Local backup'
+  | 'Read only'
+  | 'Sync failed';
 
 const numberValue = (event: ChangeEvent<HTMLInputElement>) =>
   Number(event.target.value) || 0;
@@ -37,18 +46,47 @@ export default function ScrimsPage() {
   const [activeGameId, setActiveGameId] = useState('');
   const [view, setView] = useState<ScrimView>('overview');
   const [hydrated, setHydrated] = useState(false);
-  const [saveState, setSaveState] = useState<SaveState>('Local only');
+  const [saveState, setSaveState] = useState<SaveState>('Local backup');
   const [reportCopied, setReportCopied] = useState(false);
+  const [access, setAccess] = useState<ScrimAccess | null>(null);
+  const [localSessionCount, setLocalSessionCount] = useState(0);
+  const [loadError, setLoadError] = useState('');
+  const [migrationState, setMigrationState] = useState('');
 
   useEffect(() => {
     let cancelled = false;
 
-    void listScrimSessions().then((storedSessions) => {
-      if (cancelled) return;
-      setSessions(storedSessions);
-      setHydrated(true);
-      setSaveState('Saved');
-    });
+    void resolveScrimAccess()
+      .then(async (resolvedAccess) => {
+        const storedSessions = await listScrimSessions(resolvedAccess);
+        const localCount =
+          resolvedAccess.mode === 'cloud' && resolvedAccess.canEdit
+            ? await countUnsyncedLocalScrimSessions(storedSessions)
+            : 0;
+
+        if (cancelled) return;
+        setAccess(resolvedAccess);
+        setSessions(storedSessions);
+        setLocalSessionCount(localCount);
+        setHydrated(true);
+        setSaveState(
+          resolvedAccess.mode === 'cloud'
+            ? resolvedAccess.canEdit
+              ? 'Saved online'
+              : 'Read only'
+            : resolvedAccess.mode === 'local'
+              ? 'Local backup'
+              : 'Read only',
+        );
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setLoadError(
+          error instanceof Error ? error.message : 'Could not load scrim data.',
+        );
+        setHydrated(true);
+        setSaveState('Sync failed');
+      });
 
     return () => {
       cancelled = true;
@@ -56,22 +94,28 @@ export default function ScrimsPage() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || !activeSession) return;
+    if (!hydrated || !activeSession || !access || !access.canEdit) return;
 
     const timer = window.setTimeout(() => {
-      void saveScrimSession(activeSession).then(() => {
-        setSessions((current) => {
-          const remaining = current.filter((item) => item.id !== activeSession.id);
-          return [activeSession, ...remaining].sort((a, b) =>
-            b.updatedAt.localeCompare(a.updatedAt),
-          );
+      void saveScrimSession(activeSession, access)
+        .then((target) => {
+          setSessions((current) => {
+            const remaining = current.filter(
+              (item) => item.id !== activeSession.id,
+            );
+            return [activeSession, ...remaining].sort((a, b) =>
+              b.updatedAt.localeCompare(a.updatedAt),
+            );
+          });
+          setSaveState(target === 'cloud' ? 'Saved online' : 'Local backup');
+        })
+        .catch(() => {
+          setSaveState('Sync failed');
         });
-        setSaveState('Saved');
-      });
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [activeSession, hydrated]);
+  }, [access, activeSession, hydrated]);
 
   const allGames = useMemo(
     () => sessions.flatMap((session) => session.games),
@@ -86,6 +130,7 @@ export default function ScrimsPage() {
     null;
 
   function commit(next: ScrimSession) {
+    if (access && !access.canEdit) return;
     setSaveState('Saving');
     setReportCopied(false);
     setActiveSession({
@@ -95,6 +140,7 @@ export default function ScrimsPage() {
   }
 
   function newSession() {
+    if (access && !access.canEdit) return;
     const session = createScrimSession();
     setActiveSession(session);
     setActiveGameId(session.games[0].id);
@@ -106,7 +152,13 @@ export default function ScrimsPage() {
     setActiveSession(session);
     setActiveGameId(session.games[0]?.id ?? '');
     setView('editor');
-    setSaveState('Saved');
+    setSaveState(
+      access?.mode === 'cloud'
+        ? access.canEdit
+          ? 'Saved online'
+          : 'Read only'
+        : 'Local backup',
+    );
   }
 
   function updateSession<K extends keyof ScrimSession>(
@@ -176,6 +228,26 @@ export default function ScrimsPage() {
     updateSession('status', 'Complete');
   }
 
+  async function migrateLocalData() {
+    if (!access?.canEdit) return;
+
+    setMigrationState('Migrating local sessions…');
+    try {
+      const migrated = await migrateLocalScrimSessions(access);
+      const cloudSessions = await listScrimSessions(access);
+      setSessions(cloudSessions);
+      setMigrationState(
+        `${migrated} local session${migrated === 1 ? '' : 's'} copied online.`,
+      );
+      setLocalSessionCount(0);
+      setSaveState('Saved online');
+    } catch (error) {
+      setMigrationState(
+        error instanceof Error ? error.message : 'Migration failed.',
+      );
+    }
+  }
+
   async function copyReport() {
     if (!activeSession) return;
     await navigator.clipboard.writeText(buildSessionReport(activeSession));
@@ -196,9 +268,38 @@ export default function ScrimsPage() {
 
   const totalWins = allGames.filter((game) => game.result === 'Win').length;
   const draftSession = sessions.find((session) => session.status === 'Draft');
+  const readOnly = access?.mode === 'cloud' && !access.canEdit;
+
+  if (hydrated && access?.mode === 'blocked') {
+    return (
+      <div className="page-wrap scrim-page">
+        <header className="scrim-header">
+          <div>
+            <p className="eyebrow">CHALIZE / SECURE WORKSPACE</p>
+            <h1>Access is waiting for approval.</h1>
+            <p>
+              Akun {access.email || 'ini'} sudah login, tetapi belum dimasukkan
+              ke workspace tim.
+            </p>
+          </div>
+        </header>
+        <div className="empty-panel access-empty">
+          <span>NO WORKSPACE ROLE</span>
+          <h3>Ask the owner to add this account.</h3>
+          <p>
+            Setelah role Owner, Editor, atau Viewer diberikan, refresh halaman
+            ini untuk membuka data tim.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="page-wrap scrim-page">
+    <div
+      className="page-wrap scrim-page"
+      data-read-only={readOnly ? 'true' : 'false'}
+    >
       <header className="scrim-header">
         <div>
           <p className="eyebrow">CHALIZE / SCRIM TRACKER</p>
@@ -211,9 +312,51 @@ export default function ScrimsPage() {
         <div className="save-indicator" data-state={saveState}>
           <i />
           <span>{saveState}</span>
-          <small>browser storage</small>
+          <small>
+            {access?.mode === 'cloud'
+              ? access.workspaceName
+              : 'browser storage'}
+          </small>
         </div>
       </header>
+
+      {loadError && (
+        <div className="workspace-alert danger">
+          <strong>Cloud sync could not start.</strong>
+          <span>{loadError}</span>
+        </div>
+      )}
+
+      {access?.mode === 'cloud' && access.canEdit && localSessionCount > 0 && (
+        <div className="workspace-alert">
+          <div>
+            <strong>{localSessionCount} local scrim session found</strong>
+            <span>
+              Copy data lama ke workspace online. Backup lokal tetap disimpan.
+            </span>
+          </div>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={migrateLocalData}
+          >
+            Migrate to cloud
+          </button>
+          {migrationState && <small>{migrationState}</small>}
+        </div>
+      )}
+
+      {readOnly && (
+        <div className="workspace-alert viewer-alert">
+          <div>
+            <strong>Management view · read only</strong>
+            <span>
+              Hanya session berstatus Shared yang ditampilkan. Data tidak dapat
+              diubah dari akun ini.
+            </span>
+          </div>
+        </div>
+      )}
 
       <nav className="scrim-tabs" aria-label="Scrim workspace">
         <TabButton active={view === 'overview'} onClick={() => setView('overview')}>
@@ -237,10 +380,12 @@ export default function ScrimsPage() {
       {view === 'overview' && (
         <section className="scrim-overview">
           <div className="scrim-actions">
-            <button className="primary-button" type="button" onClick={newSession}>
-              + New Scrim Session
-            </button>
-            {draftSession && (
+            {!readOnly && (
+              <button className="primary-button" type="button" onClick={newSession}>
+                + New Scrim Session
+              </button>
+            )}
+            {!readOnly && draftSession && (
               <button
                 className="secondary-button"
                 type="button"
@@ -284,7 +429,7 @@ export default function ScrimsPage() {
           </div>
 
           {!hydrated ? (
-            <div className="empty-panel">Loading local scrim data…</div>
+            <div className="empty-panel">Loading secure scrim data…</div>
           ) : sessions.length === 0 ? (
             <div className="empty-panel">
               <span>NO SCRIM DATA YET</span>
@@ -293,9 +438,11 @@ export default function ScrimsPage() {
                 Contoh: 25 Jul · 13:00 · vs ONIC Indonesia · 4 games. Setiap
                 perubahan akan tersimpan otomatis.
               </p>
-              <button className="primary-button" type="button" onClick={newSession}>
-                Create first session
-              </button>
+              {!readOnly && (
+                <button className="primary-button" type="button" onClick={newSession}>
+                  Create first session
+                </button>
+              )}
             </div>
           ) : (
             <div className="session-list">
@@ -337,7 +484,7 @@ export default function ScrimsPage() {
       )}
 
       {view === 'editor' && activeSession && (
-        <section className="scrim-editor">
+        <section className={readOnly ? 'scrim-editor read-only' : 'scrim-editor'}>
           <div className="editor-toolbar">
             <button
               className="back-button"
@@ -348,17 +495,20 @@ export default function ScrimsPage() {
             </button>
             <div>
               <StatusBadge status={activeSession.status} />
-              <select
-                aria-label="Session status"
-                value={activeSession.status}
-                onChange={(event) =>
-                  updateSession('status', event.target.value as ScrimStatus)
-                }
-              >
-                <option value="Draft">Draft</option>
-                <option value="Complete">Complete</option>
-                <option value="Reviewed">Reviewed</option>
-              </select>
+              {!readOnly && (
+                <select
+                  aria-label="Session status"
+                  value={activeSession.status}
+                  onChange={(event) =>
+                    updateSession('status', event.target.value as ScrimStatus)
+                  }
+                >
+                  <option value="Draft">Draft</option>
+                  <option value="Complete">Complete</option>
+                  <option value="Reviewed">Reviewed</option>
+                  <option value="Shared">Shared</option>
+                </select>
+              )}
             </div>
           </div>
 
@@ -434,9 +584,15 @@ export default function ScrimsPage() {
                 </button>
               ))}
             </div>
-            <button className="add-game-button" type="button" onClick={() => addGame()}>
-              + Add game
-            </button>
+            {!readOnly && (
+              <button
+                className="add-game-button"
+                type="button"
+                onClick={() => addGame()}
+              >
+                + Add game
+              </button>
+            )}
           </div>
 
           {activeGame && (
@@ -744,22 +900,24 @@ export default function ScrimsPage() {
                 />
               </div>
 
-              <div className="editor-actions">
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={saveAndNext}
-                >
-                  Save game & next →
-                </button>
-                <button
-                  className="primary-button"
-                  type="button"
-                  onClick={finishSession}
-                >
-                  Finish session
-                </button>
-              </div>
+              {!readOnly && (
+                <div className="editor-actions">
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={saveAndNext}
+                  >
+                    Save game & next →
+                  </button>
+                  <button
+                    className="primary-button"
+                    type="button"
+                    onClick={finishSession}
+                  >
+                    Finish session
+                  </button>
+                </div>
+              )}
             </>
           )}
 
@@ -769,6 +927,8 @@ export default function ScrimsPage() {
             onCopy={copyReport}
             onConclusion={(value) => updateSession('sessionNotes', value)}
             onReviewed={() => updateSession('status', 'Reviewed')}
+            onShared={() => updateSession('status', 'Shared')}
+            canEdit={!readOnly}
           />
         </section>
       )}
@@ -1029,12 +1189,16 @@ function SessionReport({
   onCopy,
   onConclusion,
   onReviewed,
+  onShared,
+  canEdit,
 }: {
   session: ScrimSession;
   copied: boolean;
   onCopy: () => void;
   onConclusion: (value: string) => void;
   onReviewed: () => void;
+  onShared: () => void;
+  canEdit: boolean;
 }) {
   const games = session.games;
   const wins = games.filter((game) => game.result === 'Win').length;
@@ -1101,6 +1265,7 @@ function SessionReport({
           value={session.sessionNotes}
           placeholder="What actually mattered? What should the team repeat, fix, or test next?"
           onChange={(event) => onConclusion(event.target.value)}
+          readOnly={!canEdit}
         />
       </label>
 
@@ -1110,10 +1275,20 @@ function SessionReport({
         <button className="secondary-button" type="button" onClick={onCopy}>
           {copied ? 'Copied ✓' : 'Copy review report'}
         </button>
-        {session.status !== 'Reviewed' && (
+        {canEdit &&
+          session.status !== 'Reviewed' &&
+          session.status !== 'Shared' && (
           <button className="primary-button" type="button" onClick={onReviewed}>
             Mark as reviewed
           </button>
+        )}
+        {canEdit && session.status === 'Reviewed' && (
+          <button className="primary-button" type="button" onClick={onShared}>
+            Share with management →
+          </button>
+        )}
+        {session.status === 'Shared' && (
+          <span className="shared-confirmation">Visible to management ✓</span>
         )}
       </div>
     </section>
@@ -1194,7 +1369,11 @@ function buildSessionReport(session: ScrimSession) {
     notes.length ? `\nGame notes:\n${notes.join('\n')}` : '',
     session.sessionNotes ? `\nCoach conclusion:\n${session.sessionNotes}` : '',
     '',
-    'Status: requires coach review before sharing.',
+    session.status === 'Shared'
+      ? 'Status: shared with management.'
+      : session.status === 'Reviewed'
+        ? 'Status: reviewed by coach; ready to share.'
+        : 'Status: requires coach review before sharing.',
   ]
     .filter((line) => line !== '')
     .join('\n');

@@ -1,14 +1,27 @@
 'use client';
 
 import Dexie, { type EntityTable } from 'dexie';
+import { createClient as createSupabaseClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 
 export const SCRIM_ROLES = ['EXP', 'Jungle', 'Mid', 'Gold', 'Roam'] as const;
 
 export type ScrimRole = (typeof SCRIM_ROLES)[number];
 export type ScrimSide = 'Blue' | 'Red';
 export type ScrimResult = 'Win' | 'Loss';
-export type ScrimStatus = 'Draft' | 'Complete' | 'Reviewed';
+export type ScrimStatus = 'Draft' | 'Complete' | 'Reviewed' | 'Shared';
 export type ObjectiveOwner = 'Us' | 'Opponent' | 'None';
+export type WorkspaceRole = 'owner' | 'editor' | 'viewer';
+
+export interface ScrimAccess {
+  mode: 'local' | 'cloud' | 'blocked';
+  workspaceId: string | null;
+  workspaceName: string;
+  userId: string | null;
+  email: string;
+  role: WorkspaceRole | null;
+  canEdit: boolean;
+}
 
 export interface ScrimPlayerGame {
   id: string;
@@ -196,14 +209,198 @@ export function playerDerivedStats(player: ScrimPlayerGame, game: ScrimGame) {
   };
 }
 
-export async function listScrimSessions() {
+async function listLocalScrimSessions() {
   const db = getScrimDatabase();
   if (!db) return [];
   return db.sessions.orderBy('updatedAt').reverse().toArray();
 }
 
-export async function saveScrimSession(session: ScrimSession) {
+async function saveLocalScrimSession(session: ScrimSession) {
   const db = getScrimDatabase();
   if (!db) return;
   await db.sessions.put(session);
+}
+
+export async function resolveScrimAccess(): Promise<ScrimAccess> {
+  if (!isSupabaseConfigured) {
+    return {
+      mode: 'local',
+      workspaceId: null,
+      workspaceName: 'Local workspace',
+      userId: null,
+      email: '',
+      role: null,
+      canEdit: true,
+    };
+  }
+
+  const supabase = createSupabaseClient();
+  if (!supabase) {
+    throw new Error('Supabase client is not configured.');
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      mode: 'blocked',
+      workspaceId: null,
+      workspaceName: '',
+      userId: null,
+      email: '',
+      role: null,
+      canEdit: false,
+    };
+  }
+
+  const { data: membership, error: membershipError } = await supabase
+    .from('workspace_members')
+    .select('workspace_id, role, workspaces(name)')
+    .limit(1)
+    .maybeSingle();
+
+  if (membershipError) {
+    throw new Error(membershipError.message);
+  }
+
+  if (!membership) {
+    return {
+      mode: 'blocked',
+      workspaceId: null,
+      workspaceName: '',
+      userId: user.id,
+      email: user.email ?? '',
+      role: null,
+      canEdit: false,
+    };
+  }
+
+  const role = membership.role as WorkspaceRole;
+  const workspaceValue = membership.workspaces as
+    | { name?: string }
+    | Array<{ name?: string }>
+    | null;
+  const workspaceName = Array.isArray(workspaceValue)
+    ? workspaceValue[0]?.name
+    : workspaceValue?.name;
+
+  return {
+    mode: 'cloud',
+    workspaceId: membership.workspace_id as string,
+    workspaceName: workspaceName ?? 'Team workspace',
+    userId: user.id,
+    email: user.email ?? '',
+    role,
+    canEdit: role === 'owner' || role === 'editor',
+  };
+}
+
+function sessionRow(session: ScrimSession, access: ScrimAccess) {
+  return {
+    id: session.id,
+    workspace_id: access.workspaceId,
+    created_by: access.userId,
+    opponent: session.opponent,
+    session_date: session.date || null,
+    status: session.status,
+    data: session,
+    created_at: session.createdAt,
+    updated_at: session.updatedAt,
+  };
+}
+
+export async function listScrimSessions(access?: ScrimAccess) {
+  if (!access || access.mode === 'local') {
+    return listLocalScrimSessions();
+  }
+
+  if (access.mode === 'blocked' || !access.workspaceId) return [];
+
+  const supabase = createSupabaseClient();
+  if (!supabase) return listLocalScrimSessions();
+
+  const { data, error } = await supabase
+    .from('scrim_sessions')
+    .select('data')
+    .eq('workspace_id', access.workspaceId)
+    .order('updated_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => row.data as ScrimSession);
+}
+
+export async function saveScrimSession(
+  session: ScrimSession,
+  access?: ScrimAccess,
+) {
+  await saveLocalScrimSession(session);
+
+  if (!access || access.mode === 'local') return 'local' as const;
+  if (access.mode !== 'cloud' || !access.canEdit) return 'readonly' as const;
+
+  const supabase = createSupabaseClient();
+  if (!supabase) return 'local' as const;
+
+  const { error } = await supabase
+    .from('scrim_sessions')
+    .upsert(sessionRow(session, access), { onConflict: 'id' });
+
+  if (error) throw new Error(error.message);
+  return 'cloud' as const;
+}
+
+function pendingLocalSessions(
+  localSessions: ScrimSession[],
+  cloudSessions: ScrimSession[],
+) {
+  const cloudUpdates = new Map(
+    cloudSessions.map((session) => [session.id, session.updatedAt]),
+  );
+
+  return localSessions.filter((session) => {
+    const cloudUpdatedAt = cloudUpdates.get(session.id);
+    return !cloudUpdatedAt || session.updatedAt > cloudUpdatedAt;
+  });
+}
+
+export async function countUnsyncedLocalScrimSessions(
+  cloudSessions: ScrimSession[],
+) {
+  const localSessions = await listLocalScrimSessions();
+  return pendingLocalSessions(localSessions, cloudSessions).length;
+}
+
+export async function migrateLocalScrimSessions(access: ScrimAccess) {
+  if (
+    access.mode !== 'cloud' ||
+    !access.canEdit ||
+    !access.workspaceId ||
+    !access.userId
+  ) {
+    throw new Error('Only an owner or editor can migrate local scrims.');
+  }
+
+  const [localSessions, cloudSessions] = await Promise.all([
+    listLocalScrimSessions(),
+    listScrimSessions(access),
+  ]);
+  const sessions = pendingLocalSessions(localSessions, cloudSessions);
+  if (sessions.length === 0) return 0;
+
+  const supabase = createSupabaseClient();
+  if (!supabase) throw new Error('Supabase client is not configured.');
+
+  const { error } = await supabase
+    .from('scrim_sessions')
+    .upsert(
+      sessions.map((session) => sessionRow(session, access)),
+      { onConflict: 'id' },
+    );
+
+  if (error) throw new Error(error.message);
+  return sessions.length;
 }

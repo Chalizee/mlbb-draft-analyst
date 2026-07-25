@@ -19,7 +19,12 @@ your own team scrims.
 - Record side, result, objectives, gold checkpoints, ordered drafts, and five
   player box scores per game.
 - Calculate KDA, KP, GPM, DPM, durability, player trends, and opponent patterns.
-- Autosave scrim sessions to local IndexedDB and download a JSON backup.
+- Autosave scrim sessions to local IndexedDB and, when configured, a private
+  Supabase workspace.
+- Use Owner, Editor, and Viewer roles. Viewers only receive sessions explicitly
+  marked `Shared`.
+- Move reports through `Draft → Complete → Reviewed → Shared`.
+- Migrate existing browser sessions online without deleting the local backup.
 - Generate a concise session report that requires coach review before sharing.
 
 ## Run locally
@@ -43,6 +48,22 @@ adjusted impact. It is a review flag, not proof that a player is overrated.
 
 ## Data storage
 
-Tournament imports and scrim records are stored in the current browser. Clearing
-browser site data can remove them, so download a scrim JSON backup periodically.
-No data is automatically uploaded or shared.
+Tournament imports remain in the current browser. Scrim records also keep a
+local IndexedDB backup. When Supabase environment variables are configured,
+signed-in Owners and Editors sync new scrim changes to the team workspace.
+Existing local sessions are only copied online after pressing **Migrate to
+cloud**. Viewer accounts can only read sessions marked `Shared`.
+
+## Secure workspace setup
+
+1. Create a Supabase project and disable public user signup.
+2. Run `supabase/schema.sql` in the Supabase SQL Editor.
+3. Create the owner's Auth user.
+4. Replace `YOUR_OWNER_EMAIL` in `supabase/bootstrap-workspace.sql`, then run it.
+5. Add `NEXT_PUBLIC_SUPABASE_URL` and
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to Vercel.
+6. Create the boss/management Auth user.
+7. Replace the two email placeholders in `supabase/add-viewer.sql`, then run it.
+
+Only the publishable key belongs in the browser/Vercel environment. Never expose
+a Supabase secret or service-role key in a `NEXT_PUBLIC_` variable.
