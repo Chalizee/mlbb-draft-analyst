@@ -8,6 +8,38 @@ export interface PlayerHeroProfile {
   games: number;
   wins: number;
   winRate: number;
+  kda?: number;
+  avgKills?: number;
+  avgDeaths?: number;
+  avgAssists?: number;
+  kp?: number;
+  gpm?: number;
+  dpm?: number;
+  dtpm?: number;
+  buildingDpm?: number;
+}
+
+export interface PlayerMatchProfile {
+  battleCode: string;
+  date: string;
+  tournament: string;
+  stage: string;
+  opponent: string;
+  side: 'BLUE' | 'RED' | 'UNKNOWN';
+  win: boolean;
+  hero: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  kda: number;
+  kp: number;
+  gpm: number;
+  dpm: number;
+  dtpm: number;
+  buildingDpm: number;
+  goldShare: number;
+  damageShare: number;
+  damageTakenShare: number;
 }
 
 export interface PlayerScoutingProfile {
@@ -47,6 +79,7 @@ export interface PlayerScoutingProfile {
   };
   percentiles: Record<MetricKey, number>;
   heroes: PlayerHeroProfile[];
+  matchHistory?: PlayerMatchProfile[];
 }
 
 export interface TeamScoutingProfile {
@@ -590,11 +623,26 @@ function aggregatePlayers(games: PlayerGame[]): PlayerScoutingProfile[] {
     const heroes = [...heroGroups.entries()]
       .map(([heroName, heroRows]) => {
         const heroWins = heroRows.filter((row) => row.win).length;
+        const heroDeaths = sum(heroRows, (row) => row.deaths);
         return {
           name: heroName,
           games: heroRows.length,
           wins: heroWins,
           winRate: round((heroWins / heroRows.length) * 100),
+          kda: round(
+            (sum(heroRows, (row) => row.kills) +
+              sum(heroRows, (row) => row.assists)) /
+              Math.max(1, heroDeaths),
+            2,
+          ),
+          avgKills: round(average(heroRows.map((row) => row.kills)), 1),
+          avgDeaths: round(average(heroRows.map((row) => row.deaths)), 1),
+          avgAssists: round(average(heroRows.map((row) => row.assists)), 1),
+          kp: round(average(heroRows.map((row) => row.kp)), 1),
+          gpm: round(average(heroRows.map((row) => row.gpm))),
+          dpm: round(average(heroRows.map((row) => row.dpm))),
+          dtpm: round(average(heroRows.map((row) => row.dtpm))),
+          buildingDpm: round(average(heroRows.map((row) => row.buildingDpm))),
         };
       })
       .sort((a, b) => b.games - a.games);
@@ -663,6 +711,38 @@ function aggregatePlayers(games: PlayerGame[]): PlayerScoutingProfile[] {
       },
       percentiles: emptyPercentiles(),
       heroes,
+      matchHistory: [...rows]
+        .sort((a, b) => {
+          const dateOrder = b.date.localeCompare(a.date);
+          return dateOrder !== 0
+            ? dateOrder
+            : b.battleCode.localeCompare(a.battleCode);
+        })
+        .map((row) => ({
+          battleCode: row.battleCode,
+          date: row.date,
+          tournament: row.tournament,
+          stage: row.stage,
+          opponent: row.enemyTeam,
+          side: row.side,
+          win: row.win,
+          hero: row.hero,
+          kills: row.kills,
+          deaths: row.deaths,
+          assists: row.assists,
+          kda: round(
+            (row.kills + row.assists) / Math.max(1, row.deaths),
+            2,
+          ),
+          kp: round(row.kp, 1),
+          gpm: round(row.gpm),
+          dpm: round(row.dpm),
+          dtpm: round(row.dtpm),
+          buildingDpm: round(row.buildingDpm),
+          goldShare: round(row.goldShare, 1),
+          damageShare: round(row.damageShare, 1),
+          damageTakenShare: round(row.damageTakenShare, 1),
+        })),
     });
   }
 

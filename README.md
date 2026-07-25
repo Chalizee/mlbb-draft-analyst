@@ -11,6 +11,8 @@ your own team scrims.
 - Rank players against the same role using role-specific metrics.
 - Shrink low-sample scores toward the role baseline.
 - Compare up to three players.
+- Open a player profile with role percentiles, full box score, expanded
+  per-hero metrics, and a game-by-game match log.
 - Review team side performance, first-phase priorities, and contested heroes.
 - Keep all imported data inside the browser. Nothing is shared automatically.
 - Create a scrim session with any number of games.

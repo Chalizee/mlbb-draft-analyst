@@ -33,6 +33,28 @@ async function main() {
     throw new Error('At least one competitive role was not assigned.');
   }
 
+  if (
+    report.players.some(
+      (player) => (player.matchHistory?.length ?? 0) !== player.matches,
+    )
+  ) {
+    throw new Error('At least one player profile has an incomplete match log.');
+  }
+
+  if (
+    report.players.some((player) =>
+      player.heroes.some(
+        (hero) =>
+          hero.kda == null ||
+          hero.gpm == null ||
+          hero.dpm == null ||
+          hero.kp == null,
+      ),
+    )
+  ) {
+    throw new Error('At least one hero profile is missing expanded metrics.');
+  }
+
   const roleReview = report.players.find((player) => player.roleConfidence < 60);
   const overrideCheck = roleReview
     ? overridePlayerRole(report, roleReview.id, roleReview.role)
@@ -62,6 +84,8 @@ async function main() {
           impact: player.impactScore,
           confidence: player.confidence,
           signal: player.signal,
+          heroes: player.heroes.length,
+          matchLog: player.matchHistory?.length ?? 0,
         })),
       },
       null,

@@ -33,6 +33,7 @@ export default function ScoutingPage() {
   const [query, setQuery] = useState('');
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [selectedTeam, setSelectedTeam] = useState('');
+  const [activePlayerId, setActivePlayerId] = useState('');
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -75,6 +76,11 @@ export default function ScoutingPage() {
     [report, selectedPlayers],
   );
 
+  const activePlayer = useMemo(
+    () => report?.players.find((player) => player.id === activePlayerId) ?? null,
+    [report, activePlayerId],
+  );
+
   const activeTeam = useMemo(() => {
     if (!report) return null;
     return (
@@ -104,6 +110,7 @@ export default function ScoutingPage() {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextWorkspace));
       setSelectedPlayers([]);
       setSelectedTeam(nextReport.teams[0]?.name ?? '');
+      setActivePlayerId('');
       setView('players');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'CSV gagal diproses.');
@@ -118,6 +125,7 @@ export default function ScoutingPage() {
     setTeamFile(null);
     setSelectedPlayers([]);
     setSelectedTeam('');
+    setActivePlayerId('');
     window.localStorage.removeItem(STORAGE_KEY);
   }
 
@@ -252,6 +260,7 @@ export default function ScoutingPage() {
           onRoleChange={setRole}
           onTeamChange={setTeam}
           onQueryChange={setQuery}
+          onOpenPlayer={setActivePlayerId}
           onToggleCompare={toggleCompare}
           onOpenCompare={() => setView('compare')}
         />
@@ -279,6 +288,16 @@ export default function ScoutingPage() {
 
       {view === 'quality' && (
         <QualityView report={report} onRoleChange={changePlayerRole} />
+      )}
+
+      {activePlayer && (
+        <PlayerProfileDrawer
+          player={activePlayer}
+          allPlayers={report.players}
+          isSelected={selectedPlayers.includes(activePlayer.id)}
+          onToggleCompare={() => toggleCompare(activePlayer.id)}
+          onClose={() => setActivePlayerId('')}
+        />
       )}
     </div>
   );
@@ -384,6 +403,7 @@ function PlayerBoard({
   onRoleChange,
   onTeamChange,
   onQueryChange,
+  onOpenPlayer,
   onToggleCompare,
   onOpenCompare,
 }: {
@@ -396,6 +416,7 @@ function PlayerBoard({
   onRoleChange: (role: 'ALL' | ScoutingRole) => void;
   onTeamChange: (team: string) => void;
   onQueryChange: (value: string) => void;
+  onOpenPlayer: (id: string) => void;
   onToggleCompare: (id: string) => void;
   onOpenCompare: () => void;
 }) {
@@ -464,13 +485,18 @@ function PlayerBoard({
                 <tr key={player.id}>
                   <td className="rank-cell">{index + 1}</td>
                   <td>
-                    <div className="player-name">
+                    <button
+                      type="button"
+                      className="player-name player-name-button"
+                      onClick={() => onOpenPlayer(player.id)}
+                      aria-label={`Open full profile for ${player.name}`}
+                    >
                       <span>{initials(player.name)}</span>
                       <div>
                         <strong>{player.name}</strong>
-                        <small>{player.team}</small>
+                        <small>{player.team} · View profile</small>
                       </div>
-                    </div>
+                    </button>
                   </td>
                   <td><RoleBadge role={player.role} /></td>
                   <td><Score value={player.impactScore} /></td>
@@ -615,6 +641,604 @@ function CompareView({
       </div>
     </section>
   );
+}
+
+type PlayerProfileTab = 'overview' | 'heroes' | 'matches';
+type PercentileKey = keyof PlayerScoutingProfile['percentiles'];
+
+const PROFILE_METRICS: Array<{
+  key: PercentileKey;
+  label: string;
+  short: string;
+}> = [
+  { key: 'farm', label: 'Farm output', short: 'Farm' },
+  { key: 'damage', label: 'Damage output', short: 'Damage' },
+  {
+    key: 'damageEfficiency',
+    label: 'Damage efficiency',
+    short: 'Efficiency',
+  },
+  { key: 'survival', label: 'Survival', short: 'Survival' },
+  { key: 'teamwork', label: 'Teamfight activity', short: 'Teamwork' },
+  { key: 'pressure', label: 'Building pressure', short: 'Pressure' },
+  { key: 'frontline', label: 'Frontline load', short: 'Frontline' },
+  { key: 'control', label: 'Control contribution', short: 'Control' },
+  { key: 'healing', label: 'Healing output', short: 'Healing' },
+  { key: 'objective', label: 'Objective activity', short: 'Objective' },
+  { key: 'versatility', label: 'Hero versatility', short: 'Versatility' },
+  { key: 'lowResource', label: 'Low-resource value', short: 'Low resource' },
+];
+
+const ROLE_PROFILE_METRICS: Record<ScoutingRole, PercentileKey[]> = {
+  EXP: [
+    'damageEfficiency',
+    'frontline',
+    'survival',
+    'teamwork',
+    'pressure',
+    'versatility',
+    'objective',
+  ],
+  JUNGLE: [
+    'objective',
+    'farm',
+    'teamwork',
+    'damageEfficiency',
+    'survival',
+    'versatility',
+  ],
+  MID: [
+    'teamwork',
+    'damageEfficiency',
+    'control',
+    'damage',
+    'survival',
+    'versatility',
+  ],
+  GOLD: [
+    'damage',
+    'damageEfficiency',
+    'pressure',
+    'survival',
+    'farm',
+    'versatility',
+  ],
+  ROAM: [
+    'teamwork',
+    'control',
+    'frontline',
+    'lowResource',
+    'survival',
+    'healing',
+    'versatility',
+  ],
+};
+
+function PlayerProfileDrawer({
+  player,
+  allPlayers,
+  isSelected,
+  onToggleCompare,
+  onClose,
+}: {
+  player: PlayerScoutingProfile;
+  allPlayers: PlayerScoutingProfile[];
+  isSelected: boolean;
+  onToggleCompare: () => void;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<PlayerProfileTab>('overview');
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [onClose]);
+
+  const rolePeers = allPlayers
+    .filter((candidate) => candidate.role === player.role)
+    .sort((a, b) => b.impactScore - a.impactScore);
+  const overallRank =
+    [...allPlayers]
+      .sort((a, b) => b.impactScore - a.impactScore)
+      .findIndex((candidate) => candidate.id === player.id) + 1;
+  const roleRank =
+    rolePeers.findIndex((candidate) => candidate.id === player.id) + 1;
+  const scoreGap = Number((player.impactScore - player.surfaceScore).toFixed(1));
+  const relevantMetrics = ROLE_PROFILE_METRICS[player.role].map((key) => ({
+    key,
+    label:
+      PROFILE_METRICS.find((metric) => metric.key === key)?.label ?? key,
+    value: player.percentiles[key],
+  }));
+  const sortedMetrics = [...relevantMetrics].sort((a, b) => b.value - a.value);
+  const strengths = sortedMetrics.slice(0, 3);
+  const watchouts = [...sortedMetrics].reverse().slice(0, 2);
+
+  return (
+    <div
+      className="player-profile-overlay"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <aside
+        className="player-profile-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${player.name} scouting profile`}
+      >
+        <header className="profile-hero">
+          <button
+            type="button"
+            className="profile-close"
+            aria-label="Close player profile"
+            onClick={onClose}
+          >
+            ×
+          </button>
+          <div className="profile-identity">
+            <span className="profile-avatar">{initials(player.name)}</span>
+            <div>
+              <div className="profile-kicker">
+                <RoleBadge role={player.role} />
+                <SignalBadge signal={player.signal} />
+              </div>
+              <h2>{player.name}</h2>
+              <p>
+                {player.team} · {player.playerCode || 'No player code'} ·{' '}
+                {player.matches} games
+              </p>
+            </div>
+          </div>
+
+          <div className="profile-actions">
+            <span>
+              Ranked <b>#{roleRank}</b> of {rolePeers.length} {player.role}
+              <small>#{overallRank} overall impact</small>
+            </span>
+            <button
+              type="button"
+              className={isSelected ? 'secondary-button selected' : 'secondary-button'}
+              onClick={onToggleCompare}
+            >
+              {isSelected ? '✓ Added to compare' : '+ Add to compare'}
+            </button>
+          </div>
+        </header>
+
+        <nav className="profile-tabs" aria-label="Player profile sections">
+          <button
+            type="button"
+            className={tab === 'overview' ? 'active' : ''}
+            onClick={() => setTab('overview')}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            className={tab === 'heroes' ? 'active' : ''}
+            onClick={() => setTab('heroes')}
+          >
+            Hero pool <span>{player.heroes.length}</span>
+          </button>
+          <button
+            type="button"
+            className={tab === 'matches' ? 'active' : ''}
+            onClick={() => setTab('matches')}
+          >
+            Match log <span>{player.matchHistory?.length ?? 0}</span>
+          </button>
+        </nav>
+
+        <div className="profile-content">
+          {tab === 'overview' && (
+            <PlayerOverview
+              player={player}
+              scoreGap={scoreGap}
+              relevantMetrics={relevantMetrics}
+              strengths={strengths}
+              watchouts={watchouts}
+            />
+          )}
+          {tab === 'heroes' && <PlayerHeroPool player={player} />}
+          {tab === 'matches' && <PlayerMatchLog player={player} />}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function PlayerOverview({
+  player,
+  scoreGap,
+  relevantMetrics,
+  strengths,
+  watchouts,
+}: {
+  player: PlayerScoutingProfile;
+  scoreGap: number;
+  relevantMetrics: Array<{ key: PercentileKey; label: string; value: number }>;
+  strengths: Array<{ key: PercentileKey; label: string; value: number }>;
+  watchouts: Array<{ key: PercentileKey; label: string; value: number }>;
+}) {
+  return (
+    <>
+      <section className="profile-score-grid">
+        <ProfileScore
+          label="Adjusted impact"
+          value={player.impactScore}
+          helper="Role-specific output"
+          tone="accent"
+        />
+        <ProfileScore
+          label="Surface score"
+          value={player.surfaceScore}
+          helper="WR + KDA perception"
+        />
+        <ProfileScore
+          label="Impact gap"
+          value={`${scoreGap > 0 ? '+' : ''}${scoreGap}`}
+          helper="Impact minus surface"
+          tone={scoreGap >= 10 ? 'accent' : scoreGap <= -12 ? 'warning' : undefined}
+        />
+        <ProfileScore
+          label="Confidence"
+          value={`${player.confidence}%`}
+          helper={`${player.roleConfidence}% role certainty`}
+        />
+      </section>
+
+      <section className={`profile-read profile-read-${player.signal.toLowerCase()}`}>
+        <div>
+          <span>SCOUTING SIGNAL</span>
+          <h3>{signalHeadline(player.signal)}</h3>
+          <p>{signalExplanation(player, scoreGap)}</p>
+        </div>
+        <div className="profile-risk">
+          <span>RESOURCE DEPENDENCY</span>
+          <strong>{riskLabel(player.dependencyRisk)}</strong>
+          <small>{player.dependencyRisk}/100 review risk</small>
+        </div>
+      </section>
+
+      <div className="profile-two-column">
+        <section className="profile-section">
+          <div className="profile-section-head">
+            <div>
+              <p className="eyebrow">ROLE SCORECARD</p>
+              <h3>Against other {player.role} players</h3>
+            </div>
+            <span>Percentile</span>
+          </div>
+          <div className="profile-role-bars">
+            {relevantMetrics.map((metric) => (
+              <MetricBar
+                key={metric.key}
+                label={metric.label}
+                value={metric.value}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="profile-section profile-scout-notes">
+          <div className="profile-section-head">
+            <div>
+              <p className="eyebrow">FAST READ</p>
+              <h3>Where to investigate</h3>
+            </div>
+          </div>
+          <div className="scout-note-group positive">
+            <span>STRONGEST ROLE SIGNALS</span>
+            {strengths.map((metric) => (
+              <p key={metric.key}>
+                <b>{Math.round(metric.value)}th</b>
+                {metric.label}
+              </p>
+            ))}
+          </div>
+          <div className="scout-note-group caution">
+            <span>REVIEW ON VOD / TRIAL</span>
+            {watchouts.map((metric) => (
+              <p key={metric.key}>
+                <b>{Math.round(metric.value)}th</b>
+                {metric.label}
+              </p>
+            ))}
+          </div>
+          <p className="profile-disclaimer">
+            These are investigation cues, not a final player verdict.
+          </p>
+        </section>
+      </div>
+
+      <section className="profile-section">
+        <div className="profile-section-head">
+          <div>
+            <p className="eyebrow">FULL BOX SCORE</p>
+            <h3>Output, resource, and teamfight profile</h3>
+          </div>
+          <span>{player.matches} game sample</span>
+        </div>
+        <div className="profile-stat-grid">
+          <ProfileStat label="Record" value={`${player.wins}-${player.matches - player.wins}`} />
+          <ProfileStat label="Win rate" value={`${player.winRate}%`} />
+          <ProfileStat label="KDA" value={player.kda} />
+          <ProfileStat
+            label="Avg K / D / A"
+            value={`${player.avgKills} / ${player.avgDeaths} / ${player.avgAssists}`}
+          />
+          <ProfileStat label="Kill participation" value={`${player.metrics.kp}%`} />
+          <ProfileStat label="Gold / min" value={player.metrics.gpm} />
+          <ProfileStat label="Damage / min" value={player.metrics.dpm} />
+          <ProfileStat label="Damage taken / min" value={player.metrics.dtpm} />
+          <ProfileStat label="Building damage / min" value={player.metrics.buildingDpm} />
+          <ProfileStat label="Gold share" value={`${player.metrics.goldShare}%`} />
+          <ProfileStat label="Damage share" value={`${player.metrics.damageShare}%`} />
+          <ProfileStat
+            label="Damage taken share"
+            value={`${player.metrics.damageTakenShare}%`}
+          />
+          <ProfileStat
+            label="Damage efficiency"
+            value={`${signed(player.metrics.damageEfficiency)} pts`}
+          />
+          <ProfileStat
+            label="Control / min"
+            value={`${player.metrics.controlPerMinute}s`}
+          />
+          <ProfileStat label="Heal / min" value={player.metrics.healPerMinute} />
+          <ProfileStat
+            label="Objectives / game"
+            value={player.metrics.objectivesPerGame}
+          />
+          <ProfileStat label="Hero pool" value={player.heroPool} />
+          <ProfileStat
+            label="Versatility index"
+            value={player.metrics.versatility}
+          />
+        </div>
+      </section>
+    </>
+  );
+}
+
+function PlayerHeroPool({ player }: { player: PlayerScoutingProfile }) {
+  const totalGames = Math.max(player.matches, 1);
+
+  return (
+    <section className="profile-section">
+      <div className="profile-section-head">
+        <div>
+          <p className="eyebrow">HERO POOL</p>
+          <h3>{player.heroPool} heroes across {player.matches} games</h3>
+        </div>
+        <span>{player.metrics.versatility} versatility</span>
+      </div>
+
+      <div className="hero-pool-summary">
+        {player.heroes.slice(0, 5).map((hero, index) => (
+          <article key={hero.name}>
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            <div>
+              <strong>{hero.name}</strong>
+              <small>
+                {hero.games} games · {Math.round((hero.games / totalGames) * 100)}% share
+              </small>
+            </div>
+            <b>{hero.winRate}%</b>
+          </article>
+        ))}
+      </div>
+
+      <div className="profile-table-wrap">
+        <table className="profile-data-table">
+          <thead>
+            <tr>
+              <th>Hero</th>
+              <th>Games</th>
+              <th>Record</th>
+              <th>WR</th>
+              <th>KDA</th>
+              <th>Avg K / D / A</th>
+              <th>KP</th>
+              <th>GPM</th>
+              <th>DPM</th>
+              <th>DTPM</th>
+              <th>Building</th>
+            </tr>
+          </thead>
+          <tbody>
+            {player.heroes.map((hero) => (
+              <tr key={hero.name}>
+                <td><strong>{hero.name}</strong></td>
+                <td>{hero.games}</td>
+                <td>{hero.wins}-{hero.games - hero.wins}</td>
+                <td>{hero.winRate}%</td>
+                <td>{hero.kda ?? '—'}</td>
+                <td>
+                  {hero.avgKills == null
+                    ? 'Re-import required'
+                    : `${hero.avgKills} / ${hero.avgDeaths} / ${hero.avgAssists}`}
+                </td>
+                <td>{hero.kp == null ? '—' : `${hero.kp}%`}</td>
+                <td>{hero.gpm ?? '—'}</td>
+                <td>{hero.dpm ?? '—'}</td>
+                <td>{hero.dtpm ?? '—'}</td>
+                <td>{hero.buildingDpm ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {player.heroes.some((hero) => hero.kda == null) && (
+        <div className="profile-refresh-note">
+          Re-import the two CSVs once to unlock the expanded per-hero metrics.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PlayerMatchLog({ player }: { player: PlayerScoutingProfile }) {
+  const matches = player.matchHistory ?? [];
+
+  if (matches.length === 0) {
+    return (
+      <section className="profile-empty">
+        <span>↻</span>
+        <h3>Re-import CSVs to build the match log</h3>
+        <p>
+          Your saved workspace was created before per-game profiles existed.
+          Replace the data once and this tab will show every match.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="profile-section">
+      <div className="profile-section-head">
+        <div>
+          <p className="eyebrow">MATCH LOG</p>
+          <h3>Every game behind the profile</h3>
+        </div>
+        <span>{matches.length} rows</span>
+      </div>
+      <div className="profile-table-wrap">
+        <table className="profile-data-table match-log-table">
+          <thead>
+            <tr>
+              <th>Date / stage</th>
+              <th>Opponent</th>
+              <th>Side</th>
+              <th>Result</th>
+              <th>Hero</th>
+              <th>K / D / A</th>
+              <th>KDA</th>
+              <th>KP</th>
+              <th>GPM</th>
+              <th>DPM</th>
+              <th>DTPM</th>
+              <th>Gold share</th>
+              <th>Damage share</th>
+              <th>Building</th>
+            </tr>
+          </thead>
+          <tbody>
+            {matches.map((match, index) => (
+              <tr key={`${match.battleCode}-${index}`}>
+                <td>
+                  <strong>{formatProfileDate(match.date)}</strong>
+                  <small>{match.stage || match.tournament || '—'}</small>
+                </td>
+                <td>{match.opponent || '—'}</td>
+                <td><span className={`side-chip ${match.side.toLowerCase()}`}>{match.side}</span></td>
+                <td>
+                  <span className={match.win ? 'result-chip win' : 'result-chip loss'}>
+                    {match.win ? 'WIN' : 'LOSS'}
+                  </span>
+                </td>
+                <td><strong>{match.hero}</strong></td>
+                <td>{match.kills} / {match.deaths} / {match.assists}</td>
+                <td>{match.kda}</td>
+                <td>{match.kp}%</td>
+                <td>{match.gpm}</td>
+                <td>{match.dpm}</td>
+                <td>{match.dtpm}</td>
+                <td>{match.goldShare}%</td>
+                <td>{match.damageShare}%</td>
+                <td>{match.buildingDpm}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function ProfileScore({
+  label,
+  value,
+  helper,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  helper: string;
+  tone?: 'accent' | 'warning';
+}) {
+  return (
+    <article className={`profile-score ${tone ? `tone-${tone}` : ''}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{helper}</small>
+    </article>
+  );
+}
+
+function ProfileStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <article>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </article>
+  );
+}
+
+function signalHeadline(signal: PlayerScoutingProfile['signal']) {
+  if (signal === 'UNDERVALUED') return 'Production is ahead of reputation.';
+  if (signal === 'CONTEXT_BOOSTED') return 'Surface numbers need more context.';
+  return 'Surface and adjusted impact broadly agree.';
+}
+
+function signalExplanation(player: PlayerScoutingProfile, gap: number) {
+  if (player.signal === 'UNDERVALUED') {
+    return `Adjusted impact is ${Math.abs(gap)} points above the WR/KDA surface score. Prioritize VOD review and a role-specific trial.`;
+  }
+  if (player.signal === 'CONTEXT_BOOSTED') {
+    return `The WR/KDA surface score is ${Math.abs(gap)} points ahead of adjusted role impact. Check team strength, resource allocation, and repeatability.`;
+  }
+  return `The impact gap is ${signed(gap)} points. Use the role scorecard to find the clearest strengths and limitations.`;
+}
+
+function riskLabel(value: number) {
+  if (value >= 55) return 'High';
+  if (value >= 25) return 'Medium';
+  return 'Low';
+}
+
+function signed(value: number) {
+  return `${value > 0 ? '+' : ''}${value}`;
+}
+
+function formatProfileDate(value: string) {
+  if (!value) return 'No date';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: '2-digit',
+  }).format(parsed);
 }
 
 function TeamView({
