@@ -457,7 +457,7 @@ function parsePlayerGame(csv: ParsedCsv, row: string[]): PlayerGame | null {
     tournament: getValue(csv, row, 'tournament'),
     team,
     enemyTeam: getValue(csv, row, 'enemyTeam'),
-    side: normalizeSide(getValue(csv, row, 'side')),
+    side: normalizeSourceSide(getValue(csv, row, 'side')),
     win: isWin(getValue(csv, row, 'result')),
     player,
     playerCode: getValue(csv, row, 'playerCode') || `${team}:${normalizeName(player)}`,
@@ -492,10 +492,10 @@ function parseTeamGame(csv: ParsedCsv, row: string[]): TeamGame | null {
   return {
     battleCode,
     team,
-    side: normalizeSide(getValue(csv, row, 'side')),
+    side: normalizeSourceSide(getValue(csv, row, 'side')),
     win: isWin(getValue(csv, row, 'result')),
-    picks: parseHeroList(getValue(csv, row, 'pick')),
-    bans: parseHeroList(getValue(csv, row, 'ban')),
+    picks: parseOrderedHeroList(getValue(csv, row, 'pick')),
+    bans: parseOrderedHeroList(getValue(csv, row, 'ban')),
     kills: toNumber(getValue(csv, row, 'kills')),
     turtles: toNumber(getValue(csv, row, 'turtleKills')),
     lords: toNumber(getValue(csv, row, 'lordKills')),
@@ -899,6 +899,14 @@ function buildQualityReport(
   const lowRoleConfidence = players.filter((player) => player.roleConfidence < 60).length;
   const invalidPlayerRows = playerCsv.rows.length - playerGames.length;
   const invalidTeamRows = teamCsv.rows.length - teamGames.length;
+  const unknownSides = teamGames.filter((game) => game.side === 'UNKNOWN').length;
+  const numericSideRows = teamCsv.rows.filter((row) => {
+    const sourceSide = getValue(teamCsv, row, 'side').trim();
+    return sourceSide === '1' || sourceSide === '2';
+  }).length;
+  const orderedDraftRows = teamGames.filter(
+    (game) => game.picks.length > 0 || game.bans.length > 0,
+  ).length;
   const inferredRoleRows = findColumn(playerCsv, 'role') === -1 ? playerGames.length : 0;
   const normalizedResults = teamCsv.rows.filter((row) => {
     const result = getValue(teamCsv, row, 'result').toLowerCase();
@@ -920,6 +928,33 @@ function buildQualityReport(
       title: 'Role needs review',
       detail: 'Role inference was inconsistent across matches for these players.',
       count: lowRoleConfidence,
+    });
+  }
+
+  if (unknownSides > 0) {
+    issues.push({
+      severity: 'warning',
+      title: 'Unknown side labels',
+      detail: 'These rows were not recognized as Blue/1 or Red/2 and need source review.',
+      count: unknownSides,
+    });
+  }
+
+  if (numericSideRows > 0) {
+    issues.push({
+      severity: 'info',
+      title: 'Numeric sides mapped',
+      detail: 'Source side 1 is mapped to Blue and source side 2 is mapped to Red.',
+      count: numericSideRows,
+    });
+  }
+
+  if (orderedDraftRows > 0) {
+    issues.push({
+      severity: 'info',
+      title: 'Draft sequence preserved',
+      detail: 'Pick and ban heroes keep their original left-to-right source order.',
+      count: orderedDraftRows,
     });
   }
 
@@ -987,7 +1022,10 @@ function normalizeName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
-function normalizeSide(value: string): 'BLUE' | 'RED' | 'UNKNOWN' {
+/**
+ * Source contract: numeric side 1 is Blue and numeric side 2 is Red.
+ */
+export function normalizeSourceSide(value: string): 'BLUE' | 'RED' | 'UNKNOWN' {
   const normalized = value.trim().toUpperCase();
   if (normalized === 'BLUE' || normalized === '1') return 'BLUE';
   if (normalized === 'RED' || normalized === '2') return 'RED';
@@ -998,7 +1036,10 @@ function isWin(value: string): boolean {
   return ['win', 'w', '胜', '1', 'true'].includes(value.trim().toLowerCase());
 }
 
-function parseHeroList(value: string): string[] {
+/**
+ * Preserves the source's left-to-right draft order. No sorting is applied.
+ */
+export function parseOrderedHeroList(value: string): string[] {
   return value
     .split(',')
     .map((hero) => hero.trim())

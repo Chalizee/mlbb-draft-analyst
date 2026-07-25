@@ -3213,6 +3213,97 @@ a {
   gap: 12px;
 }
 
+.profile-role-visual {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.95fr) minmax(210px, 0.8fr);
+  align-items: center;
+  gap: 24px;
+}
+
+.player-radar {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(186, 252, 82, 0.045), transparent 60%),
+    var(--bg);
+  padding: 13px;
+}
+
+.radar-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 2px 3px 0;
+}
+
+.radar-title span {
+  color: var(--accent);
+  font: 500 8px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.radar-title small {
+  color: var(--dim);
+  font-size: 8px;
+}
+
+.player-radar svg {
+  display: block;
+  width: 100%;
+  max-height: 330px;
+  overflow: visible;
+}
+
+.radar-grid {
+  fill: rgba(143, 154, 145, 0.012);
+  stroke: rgba(143, 154, 145, 0.15);
+  stroke-width: 1;
+}
+
+.radar-grid.outer {
+  stroke: rgba(143, 154, 145, 0.27);
+}
+
+.radar-axis {
+  stroke: rgba(143, 154, 145, 0.16);
+  stroke-width: 1;
+}
+
+.radar-area {
+  fill: rgba(186, 252, 82, 0.18);
+  stroke: var(--accent);
+  stroke-linejoin: round;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 8px rgba(186, 252, 82, 0.12));
+}
+
+.radar-point {
+  fill: var(--accent);
+  stroke: var(--accent-ink);
+  stroke-width: 2;
+}
+
+.radar-label {
+  fill: var(--muted);
+  font: 600 9px var(--font-body);
+}
+
+.radar-value {
+  fill: var(--accent);
+  font: 500 8px var(--font-mono);
+}
+
+.player-radar figcaption {
+  margin: -4px 3px 1px;
+  color: var(--dim);
+  font-size: 8px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .profile-scout-notes {
   display: flex;
   flex-direction: column;
@@ -3476,6 +3567,15 @@ a {
   .hero-pool-summary {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .profile-role-visual {
+    grid-template-columns: 1fr;
+  }
+
+  .player-radar {
+    width: min(100%, 430px);
+    justify-self: center;
+  }
 }
 
 @media (max-width: 900px) {
@@ -3565,6 +3665,14 @@ a {
 
   .profile-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profile-role-visual {
+    gap: 18px;
+  }
+
+  .player-radar {
+    padding: 9px;
   }
 
   .hero-pool-summary {

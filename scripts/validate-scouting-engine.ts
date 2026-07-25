@@ -1,5 +1,10 @@
 import { readFile } from 'node:fs/promises';
-import { analyzeScoutingCSVs, overridePlayerRole } from '../src/lib/scoutingEngine';
+import {
+  analyzeScoutingCSVs,
+  normalizeSourceSide,
+  overridePlayerRole,
+  parseOrderedHeroList,
+} from '../src/lib/scoutingEngine';
 
 async function main() {
   const [playerPath, teamPath] = process.argv.slice(2);
@@ -31,6 +36,31 @@ async function main() {
 
   if (Object.values(roleCounts).some((count) => count === 0)) {
     throw new Error('At least one competitive role was not assigned.');
+  }
+
+  if (
+    normalizeSourceSide('1') !== 'BLUE' ||
+    normalizeSourceSide('2') !== 'RED'
+  ) {
+    throw new Error('Numeric side mapping no longer follows 1=Blue and 2=Red.');
+  }
+
+  const orderedDraft = parseOrderedHeroList(
+    'Hilda,Irithel,Suyou,Cyclops,Benedetta',
+  );
+  if (
+    orderedDraft.join('|') !==
+    'Hilda|Irithel|Suyou|Cyclops|Benedetta'
+  ) {
+    throw new Error('Left-to-right pick/ban order was not preserved.');
+  }
+
+  const mappedSideRows = report.teams.reduce(
+    (total, team) => total + team.blueMatches + team.redMatches,
+    0,
+  );
+  if (mappedSideRows !== report.meta.teamRows) {
+    throw new Error('At least one team row has an unknown side after mapping.');
   }
 
   if (

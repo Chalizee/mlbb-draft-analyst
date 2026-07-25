@@ -757,6 +757,8 @@ function PlayerProfileDrawer({
     key,
     label:
       PROFILE_METRICS.find((metric) => metric.key === key)?.label ?? key,
+    short:
+      PROFILE_METRICS.find((metric) => metric.key === key)?.short ?? key,
     value: player.percentiles[key],
   }));
   const sortedMetrics = [...relevantMetrics].sort((a, b) => b.value - a.value);
@@ -867,7 +869,12 @@ function PlayerOverview({
 }: {
   player: PlayerScoutingProfile;
   scoreGap: number;
-  relevantMetrics: Array<{ key: PercentileKey; label: string; value: number }>;
+  relevantMetrics: Array<{
+    key: PercentileKey;
+    label: string;
+    short: string;
+    value: number;
+  }>;
   strengths: Array<{ key: PercentileKey; label: string; value: number }>;
   watchouts: Array<{ key: PercentileKey; label: string; value: number }>;
 }) {
@@ -920,14 +927,20 @@ function PlayerOverview({
             </div>
             <span>Percentile</span>
           </div>
-          <div className="profile-role-bars">
-            {relevantMetrics.map((metric) => (
-              <MetricBar
-                key={metric.key}
-                label={metric.label}
-                value={metric.value}
-              />
-            ))}
+          <div className="profile-role-visual">
+            <PlayerRadarChart
+              role={player.role}
+              metrics={relevantMetrics}
+            />
+            <div className="profile-role-bars">
+              {relevantMetrics.map((metric) => (
+                <MetricBar
+                  key={metric.key}
+                  label={metric.label}
+                  value={metric.value}
+                />
+              ))}
+            </div>
           </div>
         </section>
 
@@ -1166,6 +1179,124 @@ function PlayerMatchLog({ player }: { player: PlayerScoutingProfile }) {
         </table>
       </div>
     </section>
+  );
+}
+
+function PlayerRadarChart({
+  role,
+  metrics,
+}: {
+  role: ScoutingRole;
+  metrics: Array<{
+    key: PercentileKey;
+    short: string;
+    value: number;
+  }>;
+}) {
+  const size = 360;
+  const center = size / 2;
+  const radius = 118;
+  const labelRadius = 148;
+  const levels = [20, 40, 60, 80, 100];
+  const angleFor = (index: number) =>
+    -Math.PI / 2 + (Math.PI * 2 * index) / metrics.length;
+  const pointAt = (index: number, value: number, customRadius = radius) => {
+    const angle = angleFor(index);
+    const scaledRadius = customRadius * (value / 100);
+    return {
+      x: center + Math.cos(angle) * scaledRadius,
+      y: center + Math.sin(angle) * scaledRadius,
+    };
+  };
+  const polygon = (value: number) =>
+    metrics
+      .map((_, index) => {
+        const point = pointAt(index, value);
+        return `${point.x},${point.y}`;
+      })
+      .join(' ');
+  const dataPolygon = metrics
+    .map((metric, index) => {
+      const point = pointAt(index, metric.value);
+      return `${point.x},${point.y}`;
+    })
+    .join(' ');
+
+  return (
+    <figure className="player-radar">
+      <div className="radar-title">
+        <span>{role} ROLE SHAPE</span>
+        <small>Same-role percentile</small>
+      </div>
+      <svg
+        viewBox={`0 0 ${size} ${size}`}
+        role="img"
+        aria-label={`${role} role percentile radar for this player`}
+      >
+        {levels.map((level) => (
+          <polygon
+            key={level}
+            points={polygon(level)}
+            className={level === 100 ? 'radar-grid outer' : 'radar-grid'}
+          />
+        ))}
+        {metrics.map((metric, index) => {
+          const outer = pointAt(index, 100);
+          return (
+            <line
+              key={metric.key}
+              x1={center}
+              y1={center}
+              x2={outer.x}
+              y2={outer.y}
+              className="radar-axis"
+            />
+          );
+        })}
+        <polygon points={dataPolygon} className="radar-area" />
+        {metrics.map((metric, index) => {
+          const point = pointAt(index, metric.value);
+          const label = pointAt(index, 100, labelRadius);
+          const anchor =
+            label.x < center - 15
+              ? 'end'
+              : label.x > center + 15
+                ? 'start'
+                : 'middle';
+          return (
+            <g key={metric.key}>
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="4"
+                className="radar-point"
+              />
+              <text
+                x={label.x}
+                y={label.y}
+                textAnchor={anchor}
+                dominantBaseline="middle"
+                className="radar-label"
+              >
+                {metric.short}
+              </text>
+              <text
+                x={label.x}
+                y={label.y + 12}
+                textAnchor={anchor}
+                dominantBaseline="middle"
+                className="radar-value"
+              >
+                {Math.round(metric.value)}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <figcaption>
+        Shape shows strengths and gaps; bars keep the exact values readable.
+      </figcaption>
+    </figure>
   );
 }
 
