@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  SCRIM_ROLES,
   createScrimGame,
   createScrimSession,
   countUnsyncedLocalScrimSessions,
@@ -23,15 +24,22 @@ import {
   type ScrimGame,
   type ScrimPlayerGame,
   type ScrimResult,
+  type ScrimRole,
   type ScrimSession,
   type ScrimSide,
   type ScrimStatus,
 } from '@/lib/scrimDatabase';
+import { HERO_DATA } from '@/data/heroData';
 import HeroAutocomplete, {
   PlayerHeroSelect,
 } from '@/components/scrims/HeroAutocomplete';
 import GoldCheckpoint from '@/components/scrims/GoldCheckpoint';
+import PlayerPerformance from '@/components/scrims/PlayerPerformance';
 import PlayerStatInput from '@/components/scrims/PlayerStatInput';
+import {
+  PlayerNameInput,
+  SmartInputActions,
+} from '@/components/scrims/SmartPlayerInput';
 import sessionRowStyles from '@/components/scrims/SessionRow.module.css';
 
 type ScrimView = 'overview' | 'editor' | 'players' | 'opponents';
@@ -65,6 +73,7 @@ export default function ScrimsPage() {
   const [localSessionCount, setLocalSessionCount] = useState(0);
   const [loadError, setLoadError] = useState('');
   const [migrationState, setMigrationState] = useState('');
+  const [smartInputMessage, setSmartInputMessage] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -134,7 +143,20 @@ export default function ScrimsPage() {
     () => sessions.flatMap((session) => session.games),
     [sessions],
   );
-  const playerRows = useMemo(() => buildPlayerDashboard(sessions), [sessions]);
+  const dashboardSessions = useMemo(
+    () =>
+      activeSession
+        ? [
+            activeSession,
+            ...sessions.filter((session) => session.id !== activeSession.id),
+          ]
+        : sessions,
+    [activeSession, sessions],
+  );
+  const playerNameHistory = useMemo(
+    () => buildPlayerNameHistory(dashboardSessions),
+    [dashboardSessions],
+  );
   const opponentRows = useMemo(() => buildOpponentDashboard(sessions), [sessions]);
 
   const activeGame =
@@ -163,16 +185,25 @@ export default function ScrimsPage() {
   function newSession() {
     if (access && !access.canEdit) return;
     const session = createScrimSession();
+    const lineup = findLatestLineup(dashboardSessions);
+    const filled = fillPlayerNames(session.games[0], lineup, true);
+    session.games[0] = filled.game;
     setActiveSession(session);
     setActiveGameId(session.games[0].id);
     setView('editor');
     setSaveState('Saving');
+    setSmartInputMessage(
+      filled.count > 0
+        ? `${filled.count} player names copied from the latest lineup.`
+        : '',
+    );
   }
 
   function openSession(session: ScrimSession) {
     setActiveSession(session);
     setActiveGameId(session.games[0]?.id ?? '');
     setView('editor');
+    setSmartInputMessage('');
     setSaveState(
       access?.mode === 'cloud'
         ? access.canEdit
@@ -271,11 +302,73 @@ export default function ScrimsPage() {
     });
   }
 
+  function fillNamesFromLastLineup() {
+    if (!activeSession || !activeGame) return;
+    const lineup = findLineupForGame(
+      activeSession,
+      activeGame.id,
+      dashboardSessions,
+    );
+    const filled = fillPlayerNames(activeGame, lineup, false);
+
+    if (filled.count === 0) {
+      setSmartInputMessage(
+        Object.keys(lineup).length > 0
+          ? 'All available player names are already filled.'
+          : 'No previous lineup found yet. Enter each name once for the next game.',
+      );
+      return;
+    }
+
+    commit({
+      ...activeSession,
+      games: activeSession.games.map((game) =>
+        game.id === activeGame.id ? filled.game : game,
+      ),
+    });
+    setSmartInputMessage(`${filled.count} player names filled from lineup history.`);
+  }
+
+  function autoAssignPlayerHeroes() {
+    if (!activeSession || !activeGame) return;
+    const assignment = assignHeroesByRole(activeGame);
+
+    if (assignment.assigned === 0) {
+      setSmartInputMessage(
+        assignment.unresolved > 0
+          ? `${assignment.unresolved} flex pick${assignment.unresolved === 1 ? '' : 's'} still need manual role selection.`
+          : 'No unassigned Our Picks found.',
+      );
+      return;
+    }
+
+    commit({
+      ...activeSession,
+      games: activeSession.games.map((game) =>
+        game.id === activeGame.id
+          ? { ...game, players: assignment.players }
+          : game,
+      ),
+    });
+    setSmartInputMessage(
+      `${assignment.assigned} hero${assignment.assigned === 1 ? '' : 'es'} assigned safely${
+        assignment.unresolved > 0
+          ? `; ${assignment.unresolved} flex pick${assignment.unresolved === 1 ? '' : 's'} left for manual selection.`
+          : '.'
+      }`,
+    );
+  }
+
   function addGame(moveToNewGame = true) {
     if (!activeSession) return;
-    const game = createScrimGame(activeSession.games.length + 1);
+    let game = createScrimGame(activeSession.games.length + 1);
+    const previousGame = activeSession.games[activeSession.games.length - 1];
+    if (previousGame) {
+      game = fillPlayerNames(game, lineupFromGame(previousGame), true).game;
+    }
     commit({ ...activeSession, games: [...activeSession.games, game] });
     if (moveToNewGame) setActiveGameId(game.id);
+    setSmartInputMessage('Lineup copied from the previous game.');
   }
 
   function saveAndNext() {
@@ -286,6 +379,7 @@ export default function ScrimsPage() {
     const nextGame = activeSession.games[currentIndex + 1];
     if (nextGame) {
       setActiveGameId(nextGame.id);
+      setSmartInputMessage('');
     } else {
       addGame(true);
     }
@@ -369,6 +463,10 @@ export default function ScrimsPage() {
   const totalWins = allGames.filter((game) => game.result === 'Win').length;
   const draftSession = sessions.find((session) => session.status === 'Draft');
   const readOnly = access?.mode === 'cloud' && !access.canEdit;
+  const availableLineup =
+    activeSession && activeGame
+      ? findLineupForGame(activeSession, activeGame.id, dashboardSessions)
+      : {};
 
   if (hydrated && access?.mode === 'blocked') {
     return (
@@ -691,7 +789,10 @@ export default function ScrimsPage() {
                   key={game.id}
                   type="button"
                   className={activeGame?.id === game.id ? 'active' : ''}
-                  onClick={() => setActiveGameId(game.id)}
+                  onClick={() => {
+                    setActiveGameId(game.id);
+                    setSmartInputMessage('');
+                  }}
                 >
                   <span>G{game.number}</span>
                   <small className={game.result === 'Win' ? 'win' : 'loss'}>
@@ -895,11 +996,19 @@ export default function ScrimsPage() {
                   <div>
                     <h2>Player box score</h2>
                     <p>
-                      Pilih hero dari Our Picks, lalu isi angka mentah. KDA, KP,
-                      GPM, DPM, dan durability dihitung otomatis.
+                      Nama roster dan hero bisa diisi semi-otomatis, lalu isi angka
+                      mentah. KDA, KP, GPM, DPM, dan durability dihitung otomatis.
                     </p>
                   </div>
                 </div>
+                <SmartInputActions
+                  hasLineup={Object.keys(availableLineup).length > 0}
+                  hasPicks={activeGame.ourPicks.length > 0}
+                  disabled={Boolean(readOnly)}
+                  message={smartInputMessage}
+                  onFillLineup={fillNamesFromLastLineup}
+                  onAssignHeroes={autoAssignPlayerHeroes}
+                />
                 <div className="player-table-wrap">
                   <table className="player-input-table">
                     <thead>
@@ -923,14 +1032,16 @@ export default function ScrimsPage() {
                           <tr key={player.id}>
                             <td>
                               <span className="role-label">{player.role}</span>
-                              <input
+                              <PlayerNameInput
+                                role={player.role}
                                 value={player.playerName}
-                                placeholder={`${player.role} player`}
-                                onChange={(event) =>
+                                suggestions={playerNameHistory[player.role]}
+                                disabled={Boolean(readOnly)}
+                                onChange={(value) =>
                                   updatePlayer(
                                     player.id,
                                     'playerName',
-                                    event.target.value,
+                                    value,
                                   )
                                 }
                               />
@@ -1064,56 +1175,7 @@ export default function ScrimsPage() {
       )}
 
       {view === 'players' && (
-        <section>
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">PLAYER PERFORMANCE</p>
-              <h2>Track impact across scrims</h2>
-            </div>
-            <p>Box-score indicators only. Use VOD and role context for the decision.</p>
-          </div>
-          {playerRows.length === 0 ? (
-            <div className="empty-panel">
-              <h3>No player data yet.</h3>
-              <p>Player metrics appear after names and box scores are entered.</p>
-            </div>
-          ) : (
-            <div className="dashboard-table-wrap">
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>Player</th>
-                    <th>Role</th>
-                    <th>Games</th>
-                    <th>Record</th>
-                    <th>KDA</th>
-                    <th>KP</th>
-                    <th>DPM</th>
-                    <th>GPM</th>
-                    <th>Damage taken/min</th>
-                    <th>Top heroes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {playerRows.map((player) => (
-                    <tr key={`${player.name}-${player.role}`}>
-                      <td><strong>{player.name}</strong></td>
-                      <td><span className="role-chip">{player.role}</span></td>
-                      <td>{player.games}</td>
-                      <td>{player.wins}-{player.games - player.wins}</td>
-                      <td>{player.kda.toFixed(2)}</td>
-                      <td>{Math.round(player.kp)}%</td>
-                      <td>{Math.round(player.dpm)}</td>
-                      <td>{Math.round(player.gpm)}</td>
-                      <td>{Math.round(player.dtpm)}</td>
-                      <td>{player.topHeroes.join(' · ') || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+        <PlayerPerformance sessions={dashboardSessions} />
       )}
 
       {view === 'opponents' && (
@@ -1509,88 +1571,183 @@ function buildSessionReport(session: ScrimSession) {
     .join('\n');
 }
 
-interface PlayerDashboardRow {
-  name: string;
-  role: string;
-  games: number;
-  wins: number;
-  kda: number;
-  kp: number;
-  dpm: number;
-  gpm: number;
-  dtpm: number;
-  topHeroes: string[];
-}
+type PlayerLineup = Partial<Record<ScrimRole, string>>;
 
-function buildPlayerDashboard(sessions: ScrimSession[]): PlayerDashboardRow[] {
-  const rows = new Map<
-    string,
-    {
-      name: string;
-      role: string;
-      games: number;
-      wins: number;
-      kills: number;
-      deaths: number;
-      assists: number;
-      kp: number;
-      dpm: number;
-      gpm: number;
-      dtpm: number;
-      heroes: string[];
-    }
-  >();
+function buildPlayerNameHistory(
+  sessions: ScrimSession[],
+): Record<ScrimRole, string[]> {
+  const history = Object.fromEntries(
+    SCRIM_ROLES.map((role) => [role, [] as string[]]),
+  ) as Record<ScrimRole, string[]>;
 
   sessions.forEach((session) => {
-    session.games.forEach((game) => {
+    [...session.games].reverse().forEach((game) => {
       game.players.forEach((player) => {
         const name = player.playerName.trim();
         if (!name) return;
-        const key = `${name.toLowerCase()}-${player.role}`;
-        const derived = playerDerivedStats(player, game);
-        const row = rows.get(key) ?? {
-          name,
-          role: player.role,
-          games: 0,
-          wins: 0,
-          kills: 0,
-          deaths: 0,
-          assists: 0,
-          kp: 0,
-          dpm: 0,
-          gpm: 0,
-          dtpm: 0,
-          heroes: [],
-        };
-        row.games += 1;
-        row.wins += game.result === 'Win' ? 1 : 0;
-        row.kills += player.kills;
-        row.deaths += player.deaths;
-        row.assists += player.assists;
-        row.kp += derived.kp;
-        row.dpm += derived.dpm;
-        row.gpm += derived.gpm;
-        row.dtpm += derived.dtpm;
-        if (player.hero.trim()) row.heroes.push(player.hero.trim());
-        rows.set(key, row);
+        const alreadyStored = history[player.role].some(
+          (candidate) => normalizeLookup(candidate) === normalizeLookup(name),
+        );
+        if (!alreadyStored) history[player.role].push(name);
       });
     });
   });
 
-  return [...rows.values()]
-    .map((row) => ({
-      name: row.name,
-      role: row.role,
-      games: row.games,
-      wins: row.wins,
-      kda: (row.kills + row.assists) / Math.max(row.deaths, 1),
-      kp: row.kp / row.games,
-      dpm: row.dpm / row.games,
-      gpm: row.gpm / row.games,
-      dtpm: row.dtpm / row.games,
-      topHeroes: topValues(row.heroes, 3),
-    }))
-    .sort((a, b) => b.games - a.games || b.dpm - a.dpm);
+  return history;
+}
+
+function lineupFromGame(game: ScrimGame): PlayerLineup {
+  return game.players.reduce<PlayerLineup>((lineup, player) => {
+    const name = player.playerName.trim();
+    if (name) lineup[player.role] = name;
+    return lineup;
+  }, {});
+}
+
+function findLatestLineup(sessions: ScrimSession[]): PlayerLineup {
+  const lineup: PlayerLineup = {};
+
+  for (const session of sessions) {
+    for (let index = session.games.length - 1; index >= 0; index -= 1) {
+      for (const player of session.games[index].players) {
+        const name = player.playerName.trim();
+        if (name && !lineup[player.role]) lineup[player.role] = name;
+      }
+      if (SCRIM_ROLES.every((role) => Boolean(lineup[role]))) return lineup;
+    }
+  }
+
+  return lineup;
+}
+
+function findLineupForGame(
+  session: ScrimSession,
+  gameId: string,
+  sessions: ScrimSession[],
+): PlayerLineup {
+  const lineup: PlayerLineup = {};
+  const currentIndex = session.games.findIndex((game) => game.id === gameId);
+
+  for (let index = currentIndex - 1; index >= 0; index -= 1) {
+    const previous = lineupFromGame(session.games[index]);
+    SCRIM_ROLES.forEach((role) => {
+      if (!lineup[role] && previous[role]) lineup[role] = previous[role];
+    });
+  }
+
+  const historical = findLatestLineup(
+    sessions.filter((candidate) => candidate.id !== session.id),
+  );
+  SCRIM_ROLES.forEach((role) => {
+    if (!lineup[role] && historical[role]) lineup[role] = historical[role];
+  });
+
+  return lineup;
+}
+
+function fillPlayerNames(
+  game: ScrimGame,
+  lineup: PlayerLineup,
+  overwrite: boolean,
+) {
+  let count = 0;
+  const players = game.players.map((player) => {
+    const nextName = lineup[player.role]?.trim();
+    if (!nextName || (!overwrite && player.playerName.trim())) return player;
+    if (player.playerName.trim() === nextName) return player;
+    count += 1;
+    return { ...player, playerName: nextName };
+  });
+
+  return { game: { ...game, players }, count };
+}
+
+function assignHeroesByRole(game: ScrimGame) {
+  let players = game.players.map((player) => ({ ...player }));
+  const usedHeroes = new Set(
+    players.map((player) => normalizeLookup(player.hero)).filter(Boolean),
+  );
+  const remainingHeroes = game.ourPicks.filter(
+    (hero) => !usedHeroes.has(normalizeLookup(hero)),
+  );
+  const blankRoles = players
+    .filter((player) => !player.hero.trim())
+    .map((player) => player.role);
+  const candidates = remainingHeroes.map((heroName) => {
+    const hero = HERO_DATA.find(
+      (candidate) =>
+        normalizeLookup(candidate.name) === normalizeLookup(heroName),
+    );
+    const roles = hero
+      ? blankRoles.filter((role) =>
+          hero.laneRecommendation.some(
+            (lane) => normalizeLookup(lane) === normalizeLookup(role),
+          ),
+        )
+      : blankRoles;
+    return { heroName, heroKey: normalizeLookup(heroName), roles };
+  });
+  const matchings: Array<Map<string, ScrimRole>> = [];
+
+  function findMatchings(
+    index: number,
+    usedRoles: Set<ScrimRole>,
+    matching: Map<string, ScrimRole>,
+  ) {
+    if (index === candidates.length) {
+      matchings.push(new Map(matching));
+      return;
+    }
+
+    const candidate = candidates[index];
+    candidate.roles.forEach((role) => {
+      if (usedRoles.has(role)) return;
+      usedRoles.add(role);
+      matching.set(candidate.heroKey, role);
+      findMatchings(index + 1, usedRoles, matching);
+      matching.delete(candidate.heroKey);
+      usedRoles.delete(role);
+    });
+  }
+
+  findMatchings(0, new Set<ScrimRole>(), new Map<string, ScrimRole>());
+
+  const forcedAssignments = new Map<ScrimRole, string>();
+  if (matchings.length > 0) {
+    candidates.forEach((candidate) => {
+      const role = matchings[0].get(candidate.heroKey);
+      if (
+        role &&
+        matchings.every(
+          (matching) => matching.get(candidate.heroKey) === role,
+        )
+      ) {
+        forcedAssignments.set(role, candidate.heroName);
+      }
+    });
+  }
+
+  players = players.map((player) => {
+    if (player.hero.trim()) return player;
+    const heroName = forcedAssignments.get(player.role);
+    return heroName ? { ...player, hero: heroName } : player;
+  });
+  const assigned = forcedAssignments.size;
+
+  return {
+    players,
+    assigned,
+    unresolved: Math.max(remainingHeroes.length - assigned, 0),
+  };
+}
+
+function normalizeLookup(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 }
 
 interface OpponentDashboardRow {
