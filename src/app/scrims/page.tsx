@@ -30,6 +30,7 @@ import HeroAutocomplete, {
   PlayerHeroSelect,
 } from '@/components/scrims/HeroAutocomplete';
 import GoldCheckpoint from '@/components/scrims/GoldCheckpoint';
+import PlayerStatInput from '@/components/scrims/PlayerStatInput';
 
 type ScrimView = 'overview' | 'editor' | 'players' | 'opponents';
 type SaveState =
@@ -906,15 +907,15 @@ export default function ScrimsPage() {
                             {(['kills', 'deaths', 'assists'] as const).map(
                               (field) => (
                                 <td key={field}>
-                                  <input
-                                    type="number"
-                                    min="0"
+                                  <PlayerStatInput
                                     value={player[field]}
-                                    onChange={(event) =>
+                                    label={`${player.role} ${field}`}
+                                    disabled={Boolean(readOnly)}
+                                    onChange={(value) =>
                                       updatePlayer(
                                         player.id,
                                         field,
-                                        numberValue(event),
+                                        value,
                                       )
                                     }
                                   />
@@ -930,15 +931,16 @@ export default function ScrimsPage() {
                               ] as const
                             ).map(([field]) => (
                               <td key={field}>
-                                <input
-                                  type="number"
-                                  min="0"
+                                <PlayerStatInput
                                   value={player[field]}
-                                  onChange={(event) =>
+                                  label={`${player.role} ${field}`}
+                                  allowCompact
+                                  disabled={Boolean(readOnly)}
+                                  onChange={(value) =>
                                     updatePlayer(
                                       player.id,
                                       field,
-                                      numberValue(event),
+                                      value,
                                     )
                                   }
                                 />
