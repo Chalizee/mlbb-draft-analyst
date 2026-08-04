@@ -11,6 +11,7 @@ import {
   createScrimGame,
   createScrimSession,
   countUnsyncedLocalScrimSessions,
+  deleteScrimSession,
   listScrimSessions,
   migrateLocalScrimSessions,
   playerDerivedStats,
@@ -31,6 +32,7 @@ import HeroAutocomplete, {
 } from '@/components/scrims/HeroAutocomplete';
 import GoldCheckpoint from '@/components/scrims/GoldCheckpoint';
 import PlayerStatInput from '@/components/scrims/PlayerStatInput';
+import sessionRowStyles from '@/components/scrims/SessionRow.module.css';
 
 type ScrimView = 'overview' | 'editor' | 'players' | 'opponents';
 type SaveState =
@@ -294,6 +296,38 @@ export default function ScrimsPage() {
     updateSession('status', 'Complete');
   }
 
+  async function removeSession(session: ScrimSession) {
+    if (!access?.canEdit) return;
+    const opponent = session.opponent || 'Untitled scrim';
+    const confirmed = window.confirm(
+      `Delete “${opponent}” (${formatShortDate(session.date)}, ${session.games.length} game${session.games.length === 1 ? '' : 's'})?\n\nThis session cannot be restored.`,
+    );
+    if (!confirmed) return;
+
+    const wasActive = activeSession?.id === session.id;
+    if (wasActive) {
+      setActiveSession(null);
+      setActiveGameId('');
+      setView('overview');
+    }
+    setSaveState('Saving');
+    setLoadError('');
+
+    try {
+      const target = await deleteScrimSession(session.id, access);
+      setSessions((current) =>
+        current.filter((item) => item.id !== session.id),
+      );
+      setSaveState(target === 'cloud' ? 'Saved online' : 'Local backup');
+    } catch (error: unknown) {
+      if (wasActive) setActiveSession(session);
+      setLoadError(
+        error instanceof Error ? error.message : 'Could not delete the session.',
+      );
+      setSaveState('Sync failed');
+    }
+  }
+
   async function migrateLocalData() {
     if (!access?.canEdit) return;
 
@@ -517,31 +551,47 @@ export default function ScrimsPage() {
                   (game) => game.result === 'Win',
                 ).length;
                 return (
-                  <button
-                    className="session-card"
+                  <div
+                    className={`${sessionRowStyles.row} ${
+                      readOnly ? sessionRowStyles.readOnly : ''
+                    }`}
                     key={session.id}
-                    type="button"
-                    onClick={() => openSession(session)}
                   >
-                    <div className="session-date">
-                      <strong>{formatShortDate(session.date)}</strong>
-                      <span>{session.time || '—'}</span>
-                    </div>
-                    <div className="session-opponent">
-                      <small>OPPONENT</small>
-                      <strong>{session.opponent || 'Untitled scrim'}</strong>
-                      <span>{session.focus || 'No focus note'}</span>
-                    </div>
-                    <div className="session-record">
-                      <small>RECORD</small>
-                      <strong>
-                        {wins}-{session.games.length - wins}
-                      </strong>
-                      <span>{session.games.length} games</span>
-                    </div>
-                    <StatusBadge status={session.status} />
-                    <b>→</b>
-                  </button>
+                    <button
+                      className={`session-card ${sessionRowStyles.openButton}`}
+                      type="button"
+                      onClick={() => openSession(session)}
+                    >
+                      <div className="session-date">
+                        <strong>{formatShortDate(session.date)}</strong>
+                        <span>{session.time || '—'}</span>
+                      </div>
+                      <div className="session-opponent">
+                        <small>OPPONENT</small>
+                        <strong>{session.opponent || 'Untitled scrim'}</strong>
+                        <span>{session.focus || 'No focus note'}</span>
+                      </div>
+                      <div className="session-record">
+                        <small>RECORD</small>
+                        <strong>
+                          {wins}-{session.games.length - wins}
+                        </strong>
+                        <span>{session.games.length} games</span>
+                      </div>
+                      <StatusBadge status={session.status} />
+                      <b>→</b>
+                    </button>
+                    {!readOnly && (
+                      <button
+                        className={sessionRowStyles.deleteButton}
+                        type="button"
+                        aria-label={`Delete ${session.opponent || 'Untitled scrim'} session`}
+                        onClick={() => void removeSession(session)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>

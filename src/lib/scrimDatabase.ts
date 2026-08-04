@@ -233,6 +233,12 @@ async function saveLocalScrimSession(session: ScrimSession) {
   await db.sessions.put(session);
 }
 
+async function deleteLocalScrimSession(sessionId: string) {
+  const db = getScrimDatabase();
+  if (!db) return;
+  await db.sessions.delete(sessionId);
+}
+
 export async function resolveScrimAccess(): Promise<ScrimAccess> {
   if (!isSupabaseConfigured) {
     return {
@@ -363,6 +369,32 @@ export async function saveScrimSession(
 
   if (error) throw new Error(error.message);
   return 'cloud' as const;
+}
+
+export async function deleteScrimSession(
+  sessionId: string,
+  access?: ScrimAccess,
+) {
+  if (access?.mode === 'blocked' || (access && !access.canEdit)) {
+    throw new Error('This workspace is read only.');
+  }
+
+  if (access?.mode === 'cloud') {
+    if (!access.workspaceId) throw new Error('Workspace is not available.');
+    const supabase = createSupabaseClient();
+    if (!supabase) throw new Error('Supabase client is not configured.');
+
+    const { error } = await supabase
+      .from('scrim_sessions')
+      .delete()
+      .eq('id', sessionId)
+      .eq('workspace_id', access.workspaceId);
+
+    if (error) throw new Error(error.message);
+  }
+
+  await deleteLocalScrimSession(sessionId);
+  return access?.mode === 'cloud' ? ('cloud' as const) : ('local' as const);
 }
 
 function pendingLocalSessions(

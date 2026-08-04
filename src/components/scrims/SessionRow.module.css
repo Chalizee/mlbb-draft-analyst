@@ -1,0 +1,52 @@
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  background: var(--surface);
+}
+
+.row + .row {
+  border-top: 1px solid var(--line);
+}
+
+.row.readOnly {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.openButton {
+  width: 100%;
+}
+
+.deleteButton {
+  width: 78px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--dim);
+  cursor: pointer;
+  font: 500 8px var(--font-mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.deleteButton:hover,
+.deleteButton:focus-visible {
+  outline: none;
+  background: rgba(255, 123, 114, 0.08);
+  color: var(--danger);
+}
+
+@media (max-width: 760px) {
+  .deleteButton {
+    width: 58px;
+    color: var(--danger);
+    font-size: 0;
+  }
+
+  .deleteButton::before {
+    content: '×';
+    font-size: 18px;
+  }
+}
