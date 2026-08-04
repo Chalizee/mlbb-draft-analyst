@@ -54,6 +54,12 @@ export interface ScrimGame {
   towersAgainst: number;
   firstTurtle: ObjectiveOwner;
   firstLord: ObjectiveOwner;
+  ourGold5: number;
+  enemyGold5: number;
+  ourGold10: number;
+  enemyGold10: number;
+  ourGold15: number;
+  enemyGold15: number;
   goldDiff5: number;
   goldDiff10: number;
   goldDiff15: number;
@@ -147,6 +153,12 @@ export function createScrimGame(number: number): ScrimGame {
     towersAgainst: 0,
     firstTurtle: 'None',
     firstLord: 'None',
+    ourGold5: 0,
+    enemyGold5: 0,
+    ourGold10: 0,
+    enemyGold10: 0,
+    ourGold15: 0,
+    enemyGold15: 0,
     goldDiff5: 0,
     goldDiff10: 0,
     goldDiff15: 0,

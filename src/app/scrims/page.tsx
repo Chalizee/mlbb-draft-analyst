@@ -29,6 +29,7 @@ import {
 import HeroAutocomplete, {
   PlayerHeroSelect,
 } from '@/components/scrims/HeroAutocomplete';
+import GoldCheckpoint from '@/components/scrims/GoldCheckpoint';
 
 type ScrimView = 'overview' | 'editor' | 'players' | 'opponents';
 type SaveState =
@@ -37,6 +38,14 @@ type SaveState =
   | 'Local backup'
   | 'Read only'
   | 'Sync failed';
+type GoldMinute = 5 | 10 | 15;
+type GoldOwner = 'ours' | 'enemy';
+
+const GOLD_FIELDS = {
+  5: { ours: 'ourGold5', enemy: 'enemyGold5', difference: 'goldDiff5' },
+  10: { ours: 'ourGold10', enemy: 'enemyGold10', difference: 'goldDiff10' },
+  15: { ours: 'ourGold15', enemy: 'enemyGold15', difference: 'goldDiff15' },
+} as const;
 
 const numberValue = (event: ChangeEvent<HTMLInputElement>) =>
   Number(event.target.value) || 0;
@@ -205,6 +214,33 @@ export default function ScrimsPage() {
                   ? { ...player, hero: '' }
                   : player,
               ),
+            }
+          : game,
+      ),
+    });
+  }
+
+  function updateGoldTotal(
+    minute: GoldMinute,
+    owner: GoldOwner,
+    totalGold: number,
+  ) {
+    if (!activeSession || !activeGame) return;
+    const fields = GOLD_FIELDS[minute];
+    const currentOurGold = activeGame[fields.ours] ?? 0;
+    const currentEnemyGold = activeGame[fields.enemy] ?? 0;
+    const nextOurGold = owner === 'ours' ? totalGold : currentOurGold;
+    const nextEnemyGold = owner === 'enemy' ? totalGold : currentEnemyGold;
+
+    commit({
+      ...activeSession,
+      games: activeSession.games.map((game) =>
+        game.id === activeGame.id
+          ? {
+              ...game,
+              [fields.ours]: nextOurGold,
+              [fields.enemy]: nextEnemyGold,
+              [fields.difference]: nextOurGold - nextEnemyGold,
             }
           : game,
       ),
@@ -687,21 +723,21 @@ export default function ScrimsPage() {
                 </div>
                 <div className="objective-grid">
                   <CounterPair
-                    label="Turtles"
+                    label="Turtles · OUR : ENEMY"
                     ours={activeGame.turtlesFor}
                     theirs={activeGame.turtlesAgainst}
                     onOurs={(value) => updateGame('turtlesFor', value)}
                     onTheirs={(value) => updateGame('turtlesAgainst', value)}
                   />
                   <CounterPair
-                    label="Lords"
+                    label="Lords · OUR : ENEMY"
                     ours={activeGame.lordsFor}
                     theirs={activeGame.lordsAgainst}
                     onOurs={(value) => updateGame('lordsFor', value)}
                     onTheirs={(value) => updateGame('lordsAgainst', value)}
                   />
                   <CounterPair
-                    label="Towers"
+                    label="Towers · OUR : ENEMY"
                     ours={activeGame.towersFor}
                     theirs={activeGame.towersAgainst}
                     onOurs={(value) => updateGame('towersFor', value)}
@@ -722,25 +758,28 @@ export default function ScrimsPage() {
                 </div>
 
                 <div className="subsection-title">
-                  <h3>Gold difference</h3>
-                  <span>POSITIVE = OUR LEAD</span>
+                  <h3>Gold checkpoints</h3>
+                  <span>TOTAL GOLD IN K · LEAD AUTO-CALCULATED</span>
                 </div>
                 <div className="gold-grid">
-                  {(
-                    [
-                      ['goldDiff5', '@ 5 min'],
-                      ['goldDiff10', '@ 10 min'],
-                      ['goldDiff15', '@ 15 min'],
-                    ] as const
-                  ).map(([field, label]) => (
-                    <Field label={label} key={field}>
-                      <input
-                        type="number"
-                        value={activeGame[field]}
-                        onChange={(event) => updateGame(field, numberValue(event))}
+                  {([5, 10, 15] as const).map((minute) => {
+                    const fields = GOLD_FIELDS[minute];
+                    return (
+                      <GoldCheckpoint
+                        key={`${activeGame.id}-gold-${minute}`}
+                        minute={minute}
+                        ourGold={activeGame[fields.ours] ?? 0}
+                        enemyGold={activeGame[fields.enemy] ?? 0}
+                        disabled={Boolean(readOnly)}
+                        onOurGoldChange={(totalGold) =>
+                          updateGoldTotal(minute, 'ours', totalGold)
+                        }
+                        onEnemyGoldChange={(totalGold) =>
+                          updateGoldTotal(minute, 'enemy', totalGold)
+                        }
                       />
-                    </Field>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

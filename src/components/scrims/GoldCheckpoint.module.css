@@ -1,0 +1,129 @@
+.card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 12px;
+}
+
+.card header strong {
+  color: var(--text);
+  font: 500 9px var(--font-mono);
+}
+
+.card header span {
+  color: var(--dim);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 11px;
+}
+
+.inputField {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.inputField > span {
+  color: var(--dim);
+  font: 500 8px var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inputField > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  transition: border-color 140ms ease;
+}
+
+.inputField > div:focus-within {
+  border-color: rgba(186, 252, 82, 0.55);
+}
+
+.inputField input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 9px 8px;
+  color: var(--text);
+  font-size: 11px;
+}
+
+.inputField input::placeholder {
+  color: var(--dim);
+}
+
+.inputField b {
+  padding-right: 8px;
+  color: var(--muted);
+  font: 500 9px var(--font-mono);
+}
+
+.result {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding: 9px 12px;
+  background: var(--surface);
+}
+
+.result small {
+  color: var(--dim);
+  font: 500 7px var(--font-mono);
+}
+
+.result b {
+  color: var(--muted);
+  font: 500 9px var(--font-mono);
+}
+
+.result[data-tone='ours'] {
+  background: rgba(186, 252, 82, 0.06);
+}
+
+.result[data-tone='ours'] b {
+  color: var(--accent);
+}
+
+.result[data-tone='enemy'] {
+  background: rgba(255, 123, 114, 0.06);
+}
+
+.result[data-tone='enemy'] b {
+  color: var(--danger);
+}
+
+.result[data-tone='even'] b {
+  color: var(--cyan);
+}
+
+@media (max-width: 420px) {
+  .inputs {
+    grid-template-columns: 1fr;
+  }
+}
