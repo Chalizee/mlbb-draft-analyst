@@ -11,10 +11,8 @@ import {
   createScrimGame,
   createScrimSession,
   countUnsyncedLocalScrimSessions,
-  formatHeroList,
   listScrimSessions,
   migrateLocalScrimSessions,
-  parseHeroList,
   playerDerivedStats,
   resolveScrimAccess,
   safeRate,
@@ -28,6 +26,9 @@ import {
   type ScrimSide,
   type ScrimStatus,
 } from '@/lib/scrimDatabase';
+import HeroAutocomplete, {
+  PlayerHeroSelect,
+} from '@/components/scrims/HeroAutocomplete';
 
 type ScrimView = 'overview' | 'editor' | 'players' | 'opponents';
 type SaveState =
@@ -128,6 +129,14 @@ export default function ScrimsPage() {
     activeSession?.games.find((game) => game.id === activeGameId) ??
     activeSession?.games[0] ??
     null;
+  const selectedDraftHeroes = activeGame
+    ? [
+        ...activeGame.ourPicks,
+        ...activeGame.enemyPicks,
+        ...activeGame.ourBans,
+        ...activeGame.enemyBans,
+      ]
+    : [];
 
   function commit(next: ScrimSession) {
     if (access && !access.canEdit) return;
@@ -178,6 +187,26 @@ export default function ScrimsPage() {
       ...activeSession,
       games: activeSession.games.map((game) =>
         game.id === activeGame.id ? { ...game, [field]: value } : game,
+      ),
+    });
+  }
+
+  function updateOurPicks(heroes: string[]) {
+    if (!activeSession || !activeGame) return;
+    commit({
+      ...activeSession,
+      games: activeSession.games.map((game) =>
+        game.id === activeGame.id
+          ? {
+              ...game,
+              ourPicks: heroes,
+              players: game.players.map((player) =>
+                player.hero && !heroes.includes(player.hero)
+                  ? { ...player, hero: '' }
+                  : player,
+              ),
+            }
+          : game,
       ),
     });
   }
@@ -721,48 +750,52 @@ export default function ScrimsPage() {
                   <div>
                     <h2>Draft sequence</h2>
                     <p>
-                      Tulis hero sesuai urutan, pisahkan dengan koma. Urutan tetap
-                      disimpan untuk membaca pola fase draft.
+                      Ketik beberapa huruf lalu pilih hero dari database. Urutan
+                      chip tetap disimpan untuk membaca pola fase draft.
                     </p>
                   </div>
                 </div>
                 <div className="draft-input-grid">
-                  <Field label="Our picks (P1 → P5)">
-                    <textarea
-                      value={formatHeroList(activeGame.ourPicks)}
-                      placeholder="Fredrinn, Valentina, ..."
-                      onChange={(event) =>
-                        updateGame('ourPicks', parseHeroList(event.target.value))
-                      }
-                    />
-                  </Field>
-                  <Field label="Enemy picks (P1 → P5)">
-                    <textarea
-                      value={formatHeroList(activeGame.enemyPicks)}
-                      placeholder="Joy, Harith, ..."
-                      onChange={(event) =>
-                        updateGame('enemyPicks', parseHeroList(event.target.value))
-                      }
-                    />
-                  </Field>
-                  <Field label="Our bans (B1 →)">
-                    <textarea
-                      value={formatHeroList(activeGame.ourBans)}
-                      placeholder="Fanny, Zhuxin, ..."
-                      onChange={(event) =>
-                        updateGame('ourBans', parseHeroList(event.target.value))
-                      }
-                    />
-                  </Field>
-                  <Field label="Enemy bans (B1 →)">
-                    <textarea
-                      value={formatHeroList(activeGame.enemyBans)}
-                      placeholder="Lukas, Kalea, ..."
-                      onChange={(event) =>
-                        updateGame('enemyBans', parseHeroList(event.target.value))
-                      }
-                    />
-                  </Field>
+                  <HeroAutocomplete
+                    key={`our-picks-${activeGame.id}`}
+                    label="Our picks (P1 → P5)"
+                    value={activeGame.ourPicks}
+                    placeholder="Cari Fredrinn, Valentina…"
+                    slotPrefix="P"
+                    unavailableNames={selectedDraftHeroes}
+                    disabled={Boolean(readOnly)}
+                    onChange={updateOurPicks}
+                  />
+                  <HeroAutocomplete
+                    key={`enemy-picks-${activeGame.id}`}
+                    label="Enemy picks (P1 → P5)"
+                    value={activeGame.enemyPicks}
+                    placeholder="Cari Joy, Harith…"
+                    slotPrefix="P"
+                    unavailableNames={selectedDraftHeroes}
+                    disabled={Boolean(readOnly)}
+                    onChange={(heroes) => updateGame('enemyPicks', heroes)}
+                  />
+                  <HeroAutocomplete
+                    key={`our-bans-${activeGame.id}`}
+                    label="Our bans (B1 → B5)"
+                    value={activeGame.ourBans}
+                    placeholder="Cari Fanny, Zhuxin…"
+                    slotPrefix="B"
+                    unavailableNames={selectedDraftHeroes}
+                    disabled={Boolean(readOnly)}
+                    onChange={(heroes) => updateGame('ourBans', heroes)}
+                  />
+                  <HeroAutocomplete
+                    key={`enemy-bans-${activeGame.id}`}
+                    label="Enemy bans (B1 → B5)"
+                    value={activeGame.enemyBans}
+                    placeholder="Cari Lukas, Kalea…"
+                    slotPrefix="B"
+                    unavailableNames={selectedDraftHeroes}
+                    disabled={Boolean(readOnly)}
+                    onChange={(heroes) => updateGame('enemyBans', heroes)}
+                  />
                 </div>
               </div>
 
@@ -772,8 +805,8 @@ export default function ScrimsPage() {
                   <div>
                     <h2>Player box score</h2>
                     <p>
-                      Isi angka mentah. KDA, KP, GPM, DPM, dan durability dihitung
-                      otomatis.
+                      Pilih hero dari Our Picks, lalu isi angka mentah. KDA, KP,
+                      GPM, DPM, dan durability dihitung otomatis.
                     </p>
                   </div>
                 </div>
@@ -813,14 +846,20 @@ export default function ScrimsPage() {
                               />
                             </td>
                             <td>
-                              <input
+                              <PlayerHeroSelect
                                 value={player.hero}
-                                placeholder="Hero"
-                                onChange={(event) =>
+                                ourPicks={activeGame.ourPicks}
+                                unavailableNames={activeGame.players
+                                  .filter((item) => item.id !== player.id)
+                                  .map((item) => item.hero)
+                                  .filter(Boolean)}
+                                label={`${player.role} hero`}
+                                disabled={Boolean(readOnly)}
+                                onChange={(heroName) =>
                                   updatePlayer(
                                     player.id,
                                     'hero',
-                                    event.target.value,
+                                    heroName,
                                   )
                                 }
                               />
