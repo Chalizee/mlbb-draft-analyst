@@ -102,6 +102,7 @@ class ScrimTrackerDatabase extends Dexie {
 }
 
 let database: ScrimTrackerDatabase | null = null;
+const PRIVATE_WORKSPACE_STORAGE_KEY = 'chalize-private-workspace-id';
 
 export function getScrimDatabase() {
   if (typeof window === 'undefined') {
@@ -259,6 +260,37 @@ function takePrivateAccessToken() {
   return token;
 }
 
+function storedPrivateWorkspaceId() {
+  if (typeof window === 'undefined') return '';
+
+  try {
+    return window.localStorage.getItem(PRIVATE_WORKSPACE_STORAGE_KEY)?.trim() ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function rememberPrivateWorkspaceId(workspaceId: string) {
+  if (typeof window === 'undefined' || !workspaceId) return;
+
+  try {
+    window.localStorage.setItem(PRIVATE_WORKSPACE_STORAGE_KEY, workspaceId);
+  } catch {
+    // Safari can block storage in private mode. The current page still works,
+    // but the private link will need to be opened again in a normal tab.
+  }
+}
+
+function forgetPrivateWorkspaceId() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.removeItem(PRIVATE_WORKSPACE_STORAGE_KEY);
+  } catch {
+    // Ignore browser storage restrictions.
+  }
+}
+
 function blockedAccess(accessError = ''): ScrimAccess {
   return {
     mode: 'blocked',
@@ -291,6 +323,7 @@ export async function resolveScrimAccess(): Promise<ScrimAccess> {
   }
 
   const privateAccessToken = takePrivateAccessToken();
+  let claimedWorkspaceId = '';
   let {
     data: { user },
   } = await supabase.auth.getUser();
@@ -325,16 +358,56 @@ export async function resolveScrimAccess(): Promise<ScrimAccess> {
         'This private link is invalid or has been deactivated.',
       );
     }
+
+    claimedWorkspaceId =
+      typeof claim.workspace_id === 'string' ? claim.workspace_id : '';
+    if (!claimedWorkspaceId) {
+      return blockedAccess(
+        'The private link did not return a workspace. Open the link again.',
+      );
+    }
+    rememberPrivateWorkspaceId(claimedWorkspaceId);
   }
 
-  const { data: membership, error: membershipError } = await supabase
-    .from('workspace_members')
-    .select('workspace_id, role, workspaces(name)')
-    .limit(1)
-    .maybeSingle();
+  const preferredWorkspaceId =
+    claimedWorkspaceId || storedPrivateWorkspaceId();
+  let membership = null;
 
-  if (membershipError) {
-    throw new Error(membershipError.message);
+  if (preferredWorkspaceId) {
+    const { data, error } = await supabase
+      .from('workspace_members')
+      .select('workspace_id, role, workspaces(name)')
+      .eq('workspace_id', preferredWorkspaceId)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    membership = data;
+
+    if (!membership && claimedWorkspaceId) {
+      return blockedAccess(
+        'This device could not join the workspace from that private link.',
+      );
+    }
+    if (!membership) forgetPrivateWorkspaceId();
+  }
+
+  if (!membership) {
+    const { data: memberships, error } = await supabase
+      .from('workspace_members')
+      .select('workspace_id, role, created_at, workspaces(name)')
+      .order('created_at', { ascending: false })
+      .limit(2);
+
+    if (error) throw new Error(error.message);
+
+    if ((memberships?.length ?? 0) > 1) {
+      return blockedAccess(
+        'This browser is connected to more than one team workspace. Open the private editor link again to choose the correct one.',
+      );
+    }
+
+    membership = memberships?.[0] ?? null;
+    if (membership) rememberPrivateWorkspaceId(membership.workspace_id);
   }
 
   if (!membership) {
