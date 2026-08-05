@@ -389,6 +389,215 @@
   padding: 22px;
 }
 
+.sideComparison {
+  background:
+    linear-gradient(90deg, rgba(97, 230, 210, 0.025), transparent 36%, rgba(255, 123, 114, 0.025)),
+    rgba(9, 11, 10, 0.62);
+}
+
+.sideDuel {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.72fr) minmax(300px, 1.56fr) minmax(160px, 0.72fr);
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.sideSummary,
+.sideCenter {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+.sideSummary {
+  display: grid;
+  min-height: 185px;
+  align-content: center;
+  justify-items: center;
+  padding: 20px;
+  text-align: center;
+}
+
+.sideSummary > span {
+  font: 500 8px var(--font-mono);
+  letter-spacing: 0.1em;
+}
+
+.sideSummary[data-side='blue'] > span,
+.sideSummary[data-side='blue'] > strong {
+  color: var(--cyan);
+}
+
+.sideSummary[data-side='red'] > span,
+.sideSummary[data-side='red'] > strong {
+  color: var(--danger);
+}
+
+.sideSummary > strong {
+  margin: 10px 0 1px;
+  font: 500 34px var(--font-mono);
+  letter-spacing: -0.06em;
+}
+
+.sideSummary > small {
+  color: var(--dim);
+  font-size: 8px;
+}
+
+.sideSummary > div {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.sideSummary > div b,
+.sideSummary > div span {
+  font: 500 8px var(--font-mono);
+}
+
+.sideSummary > div span {
+  color: var(--dim);
+}
+
+.sideCenter {
+  display: grid;
+  min-height: 185px;
+  align-content: center;
+  gap: 6px;
+  padding: 22px;
+  text-align: center;
+}
+
+.sideCenter > span {
+  color: var(--dim);
+  font: 500 8px var(--font-mono);
+  letter-spacing: 0.09em;
+}
+
+.sideCenter > strong {
+  font: 500 18px var(--font-mono);
+  letter-spacing: -0.04em;
+}
+
+.sideBars {
+  display: grid;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.sideBars > div {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 9px;
+}
+
+.sideBars span,
+.sideBars strong {
+  font: 500 7px var(--font-mono);
+}
+
+.sideBars span {
+  color: var(--dim);
+  text-align: left;
+}
+
+.sideBars strong {
+  text-align: right;
+}
+
+.sideBars i {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--surface-3);
+}
+
+.sideBars i b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.sideBars > div:first-child i b {
+  background: var(--cyan);
+  box-shadow: 0 0 10px rgba(97, 230, 210, 0.18);
+}
+
+.sideBars > div:last-child i b {
+  background: var(--danger);
+  box-shadow: 0 0 10px rgba(255, 123, 114, 0.18);
+}
+
+.sideMetricTable {
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+.sideMetricHead,
+.sideMetricRow {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(150px, 0.8fr) minmax(150px, 0.8fr);
+  align-items: center;
+}
+
+.sideMetricHead {
+  min-height: 38px;
+  background: rgba(186, 252, 82, 0.018);
+  padding: 0 16px;
+}
+
+.sideMetricHead span,
+.sideMetricHead strong {
+  color: var(--dim);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sideMetricHead strong:first-of-type {
+  color: var(--cyan);
+}
+
+.sideMetricHead strong:last-child {
+  color: var(--danger);
+}
+
+.sideMetricRow {
+  min-height: 58px;
+  border-top: 1px solid var(--line);
+  padding: 8px 16px;
+}
+
+.sideMetricRow > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.sideMetricRow > div {
+  display: grid;
+  gap: 3px;
+}
+
+.sideMetricRow > div strong {
+  font: 500 10px var(--font-mono);
+}
+
+.sideMetricRow > div small {
+  color: var(--dim);
+  font-size: 7px;
+}
+
 .checkpointGrid,
 .objectiveGrid {
   display: grid;
@@ -882,6 +1091,15 @@
     grid-template-columns: 1fr;
   }
 
+  .sideDuel {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sideCenter {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
   .draftEvidenceGrid {
     grid-template-columns: 1fr;
   }
@@ -946,5 +1164,23 @@
 
   .sectionTitle > span {
     text-align: left;
+  }
+
+  .sideDuel {
+    grid-template-columns: 1fr;
+  }
+
+  .sideCenter {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .sideMetricTable {
+    overflow-x: auto;
+  }
+
+  .sideMetricHead,
+  .sideMetricRow {
+    min-width: 570px;
   }
 }

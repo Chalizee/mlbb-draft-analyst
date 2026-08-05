@@ -230,6 +230,7 @@ export default function TeamPerformance({ sessions }: TeamPerformanceProps) {
             <TeamShapeBreakdown snapshot={snapshot} />
           </div>
 
+          <SideComparison snapshot={snapshot} />
           <EconomyPanel snapshot={snapshot} />
           <ObjectivePanel snapshot={snapshot} />
           <DraftPanel snapshot={snapshot} />
@@ -350,6 +351,164 @@ function TeamShapeBreakdown({ snapshot }: { snapshot: TeamSnapshot }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function SideComparison({ snapshot }: { snapshot: TeamSnapshot }) {
+  const blue = buildTeamSnapshotFromRecords(
+    snapshot.records.filter((record) => record.game.side === 'Blue'),
+  );
+  const red = buildTeamSnapshotFromRecords(
+    snapshot.records.filter((record) => record.game.side === 'Red'),
+  );
+  const blueGold5 = checkpointAt(blue, 5);
+  const redGold5 = checkpointAt(red, 5);
+  const blueGold10 = checkpointAt(blue, 10);
+  const redGold10 = checkpointAt(red, 10);
+  const blueGold15 = checkpointAt(blue, 15);
+  const redGold15 = checkpointAt(red, 15);
+  const rows: SideMetricRow[] = [
+    {
+      label: 'Average GD @5',
+      blueValue: formatSignedOrDash(blueGold5),
+      blueDetail: `${blueGold5.sample} recorded`,
+      redValue: formatSignedOrDash(redGold5),
+      redDetail: `${redGold5.sample} recorded`,
+    },
+    {
+      label: 'Average GD @10',
+      blueValue: formatSignedOrDash(blueGold10),
+      blueDetail: `${blueGold10.sample} recorded`,
+      redValue: formatSignedOrDash(redGold10),
+      redDetail: `${redGold10.sample} recorded`,
+    },
+    {
+      label: 'Average GD @15',
+      blueValue: formatSignedOrDash(blueGold15),
+      blueDetail: `${blueGold15.sample} recorded`,
+      redValue: formatSignedOrDash(redGold15),
+      redDetail: `${redGold15.sample} recorded`,
+    },
+    {
+      label: 'First Turtle',
+      blueValue:
+        blue.firstTurtle.recorded > 0
+          ? `${Math.round(blue.firstTurtle.rate)}%`
+          : '—',
+      blueDetail: `${blue.firstTurtle.ours}/${blue.firstTurtle.recorded} secured`,
+      redValue:
+        red.firstTurtle.recorded > 0
+          ? `${Math.round(red.firstTurtle.rate)}%`
+          : '—',
+      redDetail: `${red.firstTurtle.ours}/${red.firstTurtle.recorded} secured`,
+    },
+    {
+      label: 'Major objective control',
+      blueValue:
+        blue.majorObjectiveSample > 0
+          ? `${Math.round(blue.majorObjectiveControl)}%`
+          : '—',
+      blueDetail: `${blue.majorObjectiveSample} total objectives`,
+      redValue:
+        red.majorObjectiveSample > 0
+          ? `${Math.round(red.majorObjectiveControl)}%`
+          : '—',
+      redDetail: `${red.majorObjectiveSample} total objectives`,
+    },
+    {
+      label: 'Lead conversion @10',
+      blueValue:
+        blue.leadGames10 > 0 ? `${Math.round(blue.leadConversion10)}%` : '—',
+      blueDetail: `${blue.leadWins10}/${blue.leadGames10} leads won`,
+      redValue:
+        red.leadGames10 > 0 ? `${Math.round(red.leadConversion10)}%` : '—',
+      redDetail: `${red.leadWins10}/${red.leadGames10} leads won`,
+    },
+    {
+      label: 'Average kill differential',
+      blueValue: blue.games > 0 ? formatSigned(blue.averageKillDifference, 1) : '—',
+      blueDetail: `${Math.round(blue.killShare)}% kill share`,
+      redValue: red.games > 0 ? formatSigned(red.averageKillDifference, 1) : '—',
+      redDetail: `${Math.round(red.killShare)}% kill share`,
+    },
+  ];
+
+  return (
+    <section className={`${styles.sectionCard} ${styles.sideComparison}`}>
+      <SectionTitle
+        eyebrow="SIDE COMPARISON"
+        title="Blue and Red on the same measurement scale"
+        meta={`${snapshot.games} SELECTED GAMES`}
+      />
+      <div className={styles.sideDuel}>
+        <SideSummaryCard side="Blue" snapshot={blue} />
+        <div className={styles.sideCenter}>
+          <span>WIN-RATE DIFFERENCE</span>
+          <strong>{formatSideGap(blue, red)}</strong>
+          <div className={styles.sideBars}>
+            <div>
+              <span>BLUE</span>
+              <i><b style={{ width: `${blue.winRate}%` }} /></i>
+              <strong>{blue.games > 0 ? `${Math.round(blue.winRate)}%` : '—'}</strong>
+            </div>
+            <div>
+              <span>RED</span>
+              <i><b style={{ width: `${red.winRate}%` }} /></i>
+              <strong>{red.games > 0 ? `${Math.round(red.winRate)}%` : '—'}</strong>
+            </div>
+          </div>
+        </div>
+        <SideSummaryCard side="Red" snapshot={red} />
+      </div>
+      <div className={styles.sideMetricTable}>
+        <div className={styles.sideMetricHead}>
+          <span>Metric</span>
+          <strong>Blue</strong>
+          <strong>Red</strong>
+        </div>
+        {rows.map((row) => (
+          <div className={styles.sideMetricRow} key={row.label}>
+            <span>{row.label}</span>
+            <div>
+              <strong>{row.blueValue}</strong>
+              <small>{row.blueDetail}</small>
+            </div>
+            <div>
+              <strong>{row.redValue}</strong>
+              <small>{row.redDetail}</small>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+interface SideMetricRow {
+  label: string;
+  blueValue: string;
+  blueDetail: string;
+  redValue: string;
+  redDetail: string;
+}
+
+function SideSummaryCard({
+  side,
+  snapshot,
+}: {
+  side: 'Blue' | 'Red';
+  snapshot: TeamSnapshot;
+}) {
+  return (
+    <article className={styles.sideSummary} data-side={side.toLowerCase()}>
+      <span>{side.toUpperCase()} SIDE</span>
+      <strong>{snapshot.games > 0 ? `${Math.round(snapshot.winRate)}%` : '—'}</strong>
+      <small>win rate</small>
+      <div>
+        <b>{snapshot.wins}-{snapshot.games - snapshot.wins}</b>
+        <span>{snapshot.games} games</span>
+      </div>
+    </article>
   );
 }
 
@@ -927,6 +1086,12 @@ function SectionTitle({
 
 function buildTeamSnapshot(sessions: ScrimSession[]): TeamSnapshot {
   const records = buildGameRecords(sessions);
+  return buildTeamSnapshotFromRecords(records);
+}
+
+function buildTeamSnapshotFromRecords(
+  records: TeamGameRecord[],
+): TeamSnapshot {
   const games = records.length;
   const wins = records.filter((record) => record.game.result === 'Win').length;
   const minutes = records.reduce(
@@ -1403,6 +1568,15 @@ function formatSigned(value: number, digits = 0) {
 
 function formatSignedOrDash(checkpoint: GoldCheckpointSummary) {
   return checkpoint.sample > 0 ? formatSigned(checkpoint.averageDifference) : '—';
+}
+
+function formatSideGap(blue: TeamSnapshot, red: TeamSnapshot) {
+  if (blue.games === 0 || red.games === 0) return 'Need both sides';
+  const difference = blue.winRate - red.winRate;
+  if (Math.abs(difference) < 0.05) return '0 pp';
+  return difference > 0
+    ? `Blue +${Math.round(difference)} pp`
+    : `Red +${Math.round(Math.abs(difference))} pp`;
 }
 
 function meanRecorded(values: Array<number | null>) {
