@@ -378,6 +378,7 @@ export async function resolveScrimAccess(): Promise<ScrimAccess> {
       .from('workspace_members')
       .select('workspace_id, role, workspaces(name)')
       .eq('workspace_id', preferredWorkspaceId)
+      .eq('user_id', user.id)
       .maybeSingle();
 
     if (error) throw new Error(error.message);
@@ -395,6 +396,7 @@ export async function resolveScrimAccess(): Promise<ScrimAccess> {
     const { data: memberships, error } = await supabase
       .from('workspace_members')
       .select('workspace_id, role, created_at, workspaces(name)')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(2);
 
