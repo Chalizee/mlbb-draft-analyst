@@ -114,7 +114,7 @@ begin
     matched_link.role,
     matched_link.id
   )
-  on conflict (workspace_id, user_id)
+  on conflict on constraint workspace_members_pkey
   do update set
     role = case
       when public.workspace_members.role = 'owner' then public.workspace_members.role
