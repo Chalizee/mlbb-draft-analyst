@@ -210,7 +210,7 @@ export default function TeamPerformance({ sessions }: TeamPerformanceProps) {
           <header className={styles.dashboardHero}>
             <div>
               <span className={styles.scopeBadge}>{activePatchLabel}</span>
-              <h3>Chalize team sample</h3>
+              <h3>SRG ACADEMY</h3>
               <p>
                 Raw scrim evidence only. Every rate below keeps its recorded
                 sample visible.
