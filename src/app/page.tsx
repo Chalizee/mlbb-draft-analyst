@@ -24,7 +24,7 @@ export default function HomePage() {
             </Link>
             <span className="local-note">
               <i />
-              Runs locally in your browser
+              Private access · synced across devices
             </span>
           </div>
         </div>
@@ -89,8 +89,8 @@ export default function HomePage() {
           <p className="eyebrow">NOW LIVE / SCRIM TRACKER</p>
           <h2>One session. Any number of games.</h2>
           <p>
-            Enter every game manually, autosave it on this device, and build
-            player performance plus opponent playstyle history over time.
+            Enter every game manually, sync it to the private team workspace,
+            and build player performance plus opponent playstyle history over time.
           </p>
         </div>
         <Link className="primary-link" href="/scrims">

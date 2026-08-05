@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { isSupabaseConfigured } from '@/lib/supabase/config';
+import {
+  isPrivateWorkspaceEnabled,
+  isSupabaseConfigured,
+} from '@/lib/supabase/config';
 
 const navItems = [
   { href: '/', label: 'Overview', icon: '01' },
@@ -36,7 +39,7 @@ export default function Sidebar() {
 
       if (cancelled) return;
       setAccount({
-        email: data.user.email ?? 'Team member',
+        email: data.user.email ?? 'Private device',
         role: membership?.role ?? 'pending',
       });
     });
@@ -50,7 +53,7 @@ export default function Sidebar() {
     const supabase = createClient();
     if (!supabase) return;
     await supabase.auth.signOut();
-    window.location.assign('/login');
+    window.location.assign(isPrivateWorkspaceEnabled ? '/scrims' : '/login');
   }
 
   return (
@@ -83,11 +86,21 @@ export default function Sidebar() {
 
         {isSupabaseConfigured ? (
           <div className="sidebar-foot account-foot">
-            <span><i /> SECURE WORKSPACE</span>
-            <strong>{account?.email ?? 'Loading account…'}</strong>
+            <span>
+              <i />{' '}
+              {isPrivateWorkspaceEnabled
+                ? 'PRIVATE WORKSPACE'
+                : 'SECURE WORKSPACE'}
+            </span>
+            <strong>
+              {account?.email ??
+                (isPrivateWorkspaceEnabled
+                  ? 'Checking device…'
+                  : 'Loading account…')}
+            </strong>
             <p>{account?.role ?? 'checking access'}</p>
             <button type="button" onClick={signOut}>
-              Sign out
+              {isPrivateWorkspaceEnabled ? 'Disconnect device' : 'Sign out'}
             </button>
           </div>
         ) : (

@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
+  isPrivateWorkspaceEnabled,
   isSupabaseConfigured,
   supabasePublishableKey,
   supabaseUrl,
@@ -32,6 +33,14 @@ export async function updateSession(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims();
   const signedIn = Boolean(data?.claims);
+
+  // Private-link access is resolved in the client boundary, where the URL
+  // fragment is available. Proxy only refreshes auth cookies; database RLS is
+  // still the source of truth for every read and write.
+  if (isPrivateWorkspaceEnabled) {
+    return response;
+  }
+
   const isLoginRoute = request.nextUrl.pathname === '/login';
   const isAuthCallbackRoute =
     request.nextUrl.pathname === '/auth/callback';

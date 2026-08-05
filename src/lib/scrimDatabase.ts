@@ -2,7 +2,10 @@
 
 import Dexie, { type EntityTable } from 'dexie';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
-import { isSupabaseConfigured } from '@/lib/supabase/config';
+import {
+  isPrivateWorkspaceEnabled,
+  isSupabaseConfigured,
+} from '@/lib/supabase/config';
 
 export const SCRIM_ROLES = ['EXP', 'Jungle', 'Mid', 'Gold', 'Roam'] as const;
 
@@ -21,6 +24,7 @@ export interface ScrimAccess {
   email: string;
   role: WorkspaceRole | null;
   canEdit: boolean;
+  accessError?: string;
 }
 
 export interface ScrimPlayerGame {
@@ -239,6 +243,35 @@ async function deleteLocalScrimSession(sessionId: string) {
   await db.sessions.delete(sessionId);
 }
 
+function takePrivateAccessToken() {
+  if (typeof window === 'undefined' || !isPrivateWorkspaceEnabled) return '';
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const token = params.get('access')?.trim() ?? '';
+
+  if (token) {
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${window.location.search}`,
+    );
+  }
+
+  return token;
+}
+
+function blockedAccess(accessError = ''): ScrimAccess {
+  return {
+    mode: 'blocked',
+    workspaceId: null,
+    workspaceName: '',
+    userId: null,
+    email: '',
+    role: null,
+    canEdit: false,
+    accessError,
+  };
+}
+
 export async function resolveScrimAccess(): Promise<ScrimAccess> {
   if (!isSupabaseConfigured) {
     return {
@@ -257,21 +290,41 @@ export async function resolveScrimAccess(): Promise<ScrimAccess> {
     throw new Error('Supabase client is not configured.');
   }
 
-  const {
+  const privateAccessToken = takePrivateAccessToken();
+  let {
     data: { user },
-    error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    return {
-      mode: 'blocked',
-      workspaceId: null,
-      workspaceName: '',
-      userId: null,
-      email: '',
-      role: null,
-      canEdit: false,
-    };
+  if (!user && isPrivateWorkspaceEnabled && privateAccessToken) {
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error || !data.user) {
+      return blockedAccess(
+        'Private access could not start. Enable Anonymous Sign-Ins in Supabase, then open the link again.',
+      );
+    }
+    user = data.user;
+  }
+
+  if (!user) {
+    return blockedAccess();
+  }
+
+  if (isPrivateWorkspaceEnabled && privateAccessToken) {
+    const { data, error } = await supabase.rpc('claim_private_workspace', {
+      private_token: privateAccessToken,
+    });
+    const claim = Array.isArray(data) ? data[0] : data;
+
+    if (error) {
+      return blockedAccess(
+        'Private workspace database setup is incomplete. Run the supplied Supabase SQL, then open the link again.',
+      );
+    }
+    if (!claim) {
+      return blockedAccess(
+        'This private link is invalid or has been deactivated.',
+      );
+    }
   }
 
   const { data: membership, error: membershipError } = await supabase
@@ -285,15 +338,11 @@ export async function resolveScrimAccess(): Promise<ScrimAccess> {
   }
 
   if (!membership) {
-    return {
-      mode: 'blocked',
-      workspaceId: null,
-      workspaceName: '',
-      userId: user.id,
-      email: user.email ?? '',
-      role: null,
-      canEdit: false,
-    };
+    return blockedAccess(
+      isPrivateWorkspaceEnabled
+        ? 'This device is not connected to the private workspace yet.'
+        : '',
+    );
   }
 
   const role = membership.role as WorkspaceRole;
@@ -310,7 +359,7 @@ export async function resolveScrimAccess(): Promise<ScrimAccess> {
     workspaceId: membership.workspace_id as string,
     workspaceName: workspaceName ?? 'Team workspace',
     userId: user.id,
-    email: user.email ?? '',
+    email: user.email ?? 'Private device',
     role,
     canEdit: role === 'owner' || role === 'editor',
   };
