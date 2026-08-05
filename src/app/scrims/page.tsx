@@ -36,13 +36,14 @@ import HeroAutocomplete, {
 import GoldCheckpoint from '@/components/scrims/GoldCheckpoint';
 import PlayerPerformance from '@/components/scrims/PlayerPerformance';
 import PlayerStatInput from '@/components/scrims/PlayerStatInput';
+import TeamPerformance from '@/components/scrims/TeamPerformance';
 import {
   PlayerNameInput,
   SmartInputActions,
 } from '@/components/scrims/SmartPlayerInput';
 import sessionRowStyles from '@/components/scrims/SessionRow.module.css';
 
-type ScrimView = 'overview' | 'editor' | 'players' | 'opponents';
+type ScrimView = 'overview' | 'editor' | 'players' | 'team' | 'opponents';
 type SaveState =
   | 'Saved online'
   | 'Saving'
@@ -157,6 +158,10 @@ export default function ScrimsPage() {
     () => buildPlayerNameHistory(dashboardSessions),
     [dashboardSessions],
   );
+  const patchHistory = useMemo(
+    () => buildPatchHistory(dashboardSessions),
+    [dashboardSessions],
+  );
   const opponentRows = useMemo(() => buildOpponentDashboard(sessions), [sessions]);
 
   const activeGame =
@@ -185,6 +190,7 @@ export default function ScrimsPage() {
   function newSession() {
     if (access && !access.canEdit) return;
     const session = createScrimSession();
+    session.patch = patchHistory[0] ?? '';
     const lineup = findLatestLineup(dashboardSessions);
     const filled = fillPlayerNames(session.games[0], lineup, true);
     session.games[0] = filled.game;
@@ -570,6 +576,9 @@ export default function ScrimsPage() {
         <TabButton active={view === 'players'} onClick={() => setView('players')}>
           Player Performance
         </TabButton>
+        <TabButton active={view === 'team'} onClick={() => setView('team')}>
+          Team Performance
+        </TabButton>
         <TabButton active={view === 'opponents'} onClick={() => setView('opponents')}>
           Opponent Insights
         </TabButton>
@@ -760,10 +769,16 @@ export default function ScrimsPage() {
               </Field>
               <Field label="Patch">
                 <input
+                  list="scrim-patch-history"
                   value={activeSession.patch}
                   placeholder="1.9.xx"
                   onChange={(event) => updateSession('patch', event.target.value)}
                 />
+                <datalist id="scrim-patch-history">
+                  {patchHistory.map((patch) => (
+                    <option value={patch} key={patch} />
+                  ))}
+                </datalist>
               </Field>
               <Field label="Roster">
                 <input
@@ -1178,6 +1193,10 @@ export default function ScrimsPage() {
         <PlayerPerformance sessions={dashboardSessions} />
       )}
 
+      {view === 'team' && (
+        <TeamPerformance sessions={dashboardSessions} />
+      )}
+
       {view === 'opponents' && (
         <section>
           <div className="section-heading">
@@ -1572,6 +1591,21 @@ function buildSessionReport(session: ScrimSession) {
 }
 
 type PlayerLineup = Partial<Record<ScrimRole, string>>;
+
+function buildPatchHistory(sessions: ScrimSession[]) {
+  const seen = new Set<string>();
+
+  return [...sessions]
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map((session) => session.patch.trim())
+    .filter((patch) => {
+      if (!patch) return false;
+      const key = normalizeLookup(patch);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
 
 function buildPlayerNameHistory(
   sessions: ScrimSession[],
