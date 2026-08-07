@@ -391,6 +391,32 @@ export default function ScrimsPage() {
     }
   }
 
+  function removeActiveGame() {
+    if (!activeSession || !activeGame || activeSession.games.length <= 1) {
+      return;
+    }
+
+    const currentIndex = activeSession.games.findIndex(
+      (game) => game.id === activeGame.id,
+    );
+    const confirmed = window.confirm(
+      `Delete Game ${activeGame.number}?\n\nThe other games in this session will stay saved.`,
+    );
+    if (!confirmed) return;
+
+    const remainingGames = activeSession.games
+      .filter((game) => game.id !== activeGame.id)
+      .map((game, index) => ({ ...game, number: index + 1 }));
+    const nextActiveGame =
+      remainingGames[Math.min(currentIndex, remainingGames.length - 1)];
+
+    commit({ ...activeSession, games: remainingGames });
+    setActiveGameId(nextActiveGame.id);
+    setSmartInputMessage(
+      `Game ${activeGame.number} deleted. Remaining games renumbered.`,
+    );
+  }
+
   function finishSession() {
     if (!activeSession) return;
     updateSession('status', 'Complete');
@@ -1158,6 +1184,19 @@ export default function ScrimsPage() {
 
               {!readOnly && (
                 <div className="editor-actions">
+                  {activeSession.games.length > 1 && (
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      style={{
+                        borderColor: 'rgba(255, 123, 114, 0.28)',
+                        color: 'var(--danger)',
+                      }}
+                      onClick={removeActiveGame}
+                    >
+                      Delete Game {activeGame.number}
+                    </button>
+                  )}
                   <button
                     className="secondary-button"
                     type="button"
