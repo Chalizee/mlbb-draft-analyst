@@ -36,6 +36,7 @@ import HeroAutocomplete, {
 import GoldCheckpoint from '@/components/scrims/GoldCheckpoint';
 import PlayerPerformance from '@/components/scrims/PlayerPerformance';
 import PlayerStatInput from '@/components/scrims/PlayerStatInput';
+import OpponentInsights from '@/components/scrims/OpponentInsights';
 import TeamPerformance from '@/components/scrims/TeamPerformance';
 import {
   PlayerNameInput,
@@ -1237,54 +1238,7 @@ export default function ScrimsPage() {
       )}
 
       {view === 'opponents' && (
-        <section>
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">OPPONENT INSIGHTS</p>
-              <h2>Build a living playstyle map</h2>
-            </div>
-            <p>Draft priorities, objective tendencies, and your record by opponent.</p>
-          </div>
-          {opponentRows.length === 0 ? (
-            <div className="empty-panel">
-              <h3>No opponent data yet.</h3>
-              <p>Patterns appear after opponent names, drafts, and objectives are saved.</p>
-            </div>
-          ) : (
-            <div className="opponent-grid">
-              {opponentRows.map((opponent) => (
-                <article className="opponent-card" key={opponent.name}>
-                  <div className="opponent-card-head">
-                    <div>
-                      <small>OPPONENT PROFILE</small>
-                      <h3>{opponent.name}</h3>
-                    </div>
-                    <strong>
-                      {opponent.wins}-{opponent.games - opponent.wins}
-                    </strong>
-                  </div>
-                  <div className="opponent-stats">
-                    <span>
-                      <small>SESSIONS</small>
-                      <b>{opponent.sessions}</b>
-                    </span>
-                    <span>
-                      <small>AVG GAME</small>
-                      <b>{opponent.averageDuration.toFixed(1)}m</b>
-                    </span>
-                    <span>
-                      <small>THEIR 1ST TURTLE</small>
-                      <b>{Math.round(opponent.firstTurtleRate)}%</b>
-                    </span>
-                  </div>
-                  <PatternList label="TOP PICKS" values={opponent.topPicks} />
-                  <PatternList label="TOP BANS VS US" values={opponent.topBans} />
-                  <PatternList label="OUR PRIORITY VS THEM" values={opponent.ourPicks} />
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
+        <OpponentInsights sessions={dashboardSessions} />
       )}
     </div>
   );

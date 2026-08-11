@@ -76,6 +76,17 @@ interface DraftPairSummary {
   wins: number;
 }
 
+interface SideDraftProfile {
+  side: 'Blue' | 'Red';
+  games: number;
+  wins: number;
+  draftsRecorded: number;
+  openingLabel: string;
+  openingPicks: DraftCount[];
+  pickPriority: DraftCount[];
+  firstPhaseBans: DraftCount[];
+}
+
 interface DraftSummary {
   heroes: DraftHeroSummary[];
   ourFirstPhaseBans: DraftCount[];
@@ -210,7 +221,7 @@ export default function TeamPerformance({ sessions }: TeamPerformanceProps) {
           <header className={styles.dashboardHero}>
             <div>
               <span className={styles.scopeBadge}>{activePatchLabel}</span>
-              <h3>SRG ACADEMY</h3>
+              <h3>Chalize team sample</h3>
               <p>
                 Raw scrim evidence only. Every rate below keeps its recorded
                 sample visible.
@@ -790,7 +801,7 @@ function DraftPanel({ snapshot }: { snapshot: TeamSnapshot }) {
               detail={`${draft.heroes.reduce((sum, hero) => sum + hero.picks, 0)} total pick entries`}
             />
             <ConversionMetric
-              label="First rotations"
+              label="Early selections"
               value={String(draft.heroes.reduce((sum, hero) => sum + hero.firstRotation, 0))}
               detail="team pick slots P1—P3"
             />
@@ -806,13 +817,15 @@ function DraftPanel({ snapshot }: { snapshot: TeamSnapshot }) {
             />
           </div>
 
+          <SideDraftPriority records={snapshot.records} />
+
           <div className={styles.tableWrap}>
             <table className={styles.priorityTable}>
               <thead>
                 <tr>
                   <th>Hero</th>
                   <th>Picks</th>
-                  <th>First rotation</th>
+                  <th>Early selections</th>
                   <th>Pick slots</th>
                   <th>Record</th>
                   <th>WR</th>
@@ -868,6 +881,108 @@ function DraftPanel({ snapshot }: { snapshot: TeamSnapshot }) {
             <DraftPairs pairs={draft.pairs} />
           </div>
         </>
+      )}
+    </section>
+  );
+}
+
+function SideDraftPriority({ records }: { records: TeamGameRecord[] }) {
+  const profiles: SideDraftProfile[] = [
+    buildOurSideDraft(records, 'Blue'),
+    buildOurSideDraft(records, 'Red'),
+  ];
+
+  return (
+    <section className={styles.sideDraftSection}>
+      <header>
+        <div>
+          <span>DRAFT BY SIDE</span>
+          <h4>Our First Pick vs Second Pick priorities</h4>
+        </div>
+        <small>PICK ORDER PRESERVED</small>
+      </header>
+      <div className={styles.sideDraftGrid}>
+        {profiles.map((profile) => (
+          <article
+            className={styles.sideDraftCard}
+            data-side={profile.side.toLowerCase()}
+            key={profile.side}
+          >
+            <header>
+              <div>
+                <span>{profile.side.toUpperCase()} SIDE</span>
+                <h5>
+                  {profile.side === 'Blue'
+                    ? 'We have First Pick'
+                    : 'We have Second Pick'}
+                </h5>
+              </div>
+              <div>
+                <strong>{profile.wins}-{profile.games - profile.wins}</strong>
+                <small>{profile.draftsRecorded}/{profile.games} drafts</small>
+              </div>
+            </header>
+
+            {profile.games === 0 ? (
+              <div className={styles.sideDraftEmpty}>No games on this side.</div>
+            ) : (
+              <div className={styles.sideDraftLists}>
+                <SideDraftList
+                  title={profile.openingLabel}
+                  entries={profile.openingPicks}
+                  games={profile.games}
+                />
+                <SideDraftList
+                  title="ALL PICK PRIORITY"
+                  entries={profile.pickPriority}
+                  games={profile.games}
+                />
+                <SideDraftList
+                  title="FIRST-PHASE BAN PRIORITY"
+                  entries={profile.firstPhaseBans}
+                  games={profile.games}
+                />
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SideDraftList({
+  title,
+  entries,
+  games,
+}: {
+  title: string;
+  entries: DraftCount[];
+  games: number;
+}) {
+  return (
+    <section className={styles.sideDraftList}>
+      <h6>{title}</h6>
+      {entries.length === 0 ? (
+        <p>No recorded data</p>
+      ) : (
+        <div>
+          {entries.slice(0, 6).map((entry) => {
+            const visual = heroVisual(entry.name);
+            return (
+              <article key={entry.name}>
+                <HeroAvatar
+                  name={entry.name}
+                  imageUrl={visual?.imageUrl}
+                  size="xs"
+                />
+                <span>{entry.name}</span>
+                <strong>{entry.count}</strong>
+                <small>{Math.round(safeRate(entry.count, games) * 100)}%</small>
+              </article>
+            );
+          })}
+        </div>
       )}
     </section>
   );
@@ -1372,6 +1487,40 @@ function buildDraftSummary(records: TeamGameRecord[]): DraftSummary {
     ),
     uniquePicks: heroMap.size,
     gamesWithDraft,
+  };
+}
+
+function buildOurSideDraft(
+  records: TeamGameRecord[],
+  side: 'Blue' | 'Red',
+): SideDraftProfile {
+  const sideRecords = records.filter((record) => record.game.side === side);
+  const openingSize = side === 'Blue' ? 1 : 2;
+  const openingPicks = new Map<string, DraftCount>();
+  const pickPriority = new Map<string, DraftCount>();
+  const firstPhaseBans = new Map<string, DraftCount>();
+  let draftsRecorded = 0;
+
+  sideRecords.forEach((record) => {
+    const picks = record.game.ourPicks;
+    const bans = record.game.ourBans;
+    if (picks.some((hero) => hero.trim()) || bans.some((hero) => hero.trim())) {
+      draftsRecorded += 1;
+    }
+    countDraftValues(picks.slice(0, openingSize), openingPicks);
+    countDraftValues(picks, pickPriority);
+    countDraftValues(bans.slice(0, 3), firstPhaseBans);
+  });
+
+  return {
+    side,
+    games: sideRecords.length,
+    wins: sideRecords.filter((record) => record.game.result === 'Win').length,
+    draftsRecorded,
+    openingLabel: side === 'Blue' ? 'P1 OPENING PRIORITY' : 'R1—R2 OPENING PRIORITY',
+    openingPicks: sortDraftCounts(openingPicks),
+    pickPriority: sortDraftCounts(pickPriority),
+    firstPhaseBans: sortDraftCounts(firstPhaseBans),
   };
 }
 

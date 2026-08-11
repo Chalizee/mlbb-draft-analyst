@@ -1,0 +1,557 @@
+.page {
+  display: grid;
+  gap: 14px;
+}
+
+.heading,
+.detailHero,
+.sectionTitle {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.heading {
+  margin-bottom: 8px;
+}
+
+.heading p,
+.detailHero p,
+.sectionTitle p {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font: 500 8px var(--font-mono);
+  letter-spacing: 0.12em;
+}
+
+.heading h2,
+.detailHero h2,
+.sectionTitle h3 {
+  margin: 0;
+  letter-spacing: -0.045em;
+}
+
+.heading h2 {
+  max-width: 650px;
+  font-size: 34px;
+}
+
+.heading > span,
+.sectionTitle > span {
+  color: var(--dim);
+  font: 500 8px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-align: right;
+}
+
+.empty,
+.inlineEmpty {
+  border: 1px dashed var(--line-bright);
+  border-radius: var(--radius);
+  color: var(--dim);
+  text-align: center;
+}
+
+.empty {
+  display: grid;
+  min-height: 360px;
+  place-content: center;
+  gap: 8px;
+  padding: 30px;
+}
+
+.empty span {
+  color: var(--accent);
+  font: 500 8px var(--font-mono);
+  letter-spacing: 0.1em;
+}
+
+.empty h3,
+.empty p {
+  margin: 0;
+}
+
+.empty h3 {
+  color: var(--text);
+}
+
+.empty p {
+  font-size: 10px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.profileCard {
+  display: grid;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  outline: none;
+  background:
+    linear-gradient(135deg, rgba(186, 252, 82, 0.025), transparent 45%),
+    var(--surface);
+  padding: 22px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.profileCard:hover,
+.profileCard:focus-visible {
+  border-color: rgba(186, 252, 82, 0.38);
+  background:
+    linear-gradient(135deg, rgba(186, 252, 82, 0.05), transparent 48%),
+    var(--surface-2);
+  transform: translateY(-2px);
+}
+
+.profileCard > header,
+.profileCard > footer,
+.sideCard > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.profileCard > header span,
+.profileCard > footer,
+.sideCard > header span {
+  color: var(--dim);
+  font: 500 8px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.profileCard h3 {
+  margin: 6px 0 0;
+  font-size: 21px;
+}
+
+.profileCard > header b {
+  color: var(--accent);
+  font: 500 18px var(--font-mono);
+}
+
+.cardMetrics,
+.summaryGrid {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.cardMetrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 18px 0 14px;
+}
+
+.metric {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 13px;
+}
+
+.metric + .metric {
+  border-left: 1px solid var(--line);
+}
+
+.metric small {
+  color: var(--dim);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.metric b {
+  font: 500 15px var(--font-mono);
+}
+
+.heroStrip {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+}
+
+.heroStrip small {
+  color: var(--dim);
+  font-size: 9px;
+}
+
+.profileCard > footer {
+  align-items: center;
+  margin-top: 15px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  letter-spacing: 0;
+}
+
+.profileCard > footer strong {
+  color: var(--accent);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.backButton {
+  width: max-content;
+  border: 0;
+  background: transparent;
+  padding: 5px 0;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.backButton:hover {
+  color: var(--accent);
+}
+
+.detailHero {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(125deg, rgba(186, 252, 82, 0.045), transparent 52%),
+    var(--surface);
+  padding: 26px;
+}
+
+.detailHero h2 {
+  font-size: 38px;
+}
+
+.detailHero > div:first-child > span {
+  display: block;
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.detailRecord {
+  display: grid;
+  min-width: 150px;
+  justify-items: end;
+  gap: 4px;
+}
+
+.detailRecord span,
+.detailRecord small {
+  color: var(--dim);
+  font: 500 8px var(--font-mono);
+}
+
+.detailRecord strong {
+  color: var(--accent);
+  font: 500 30px var(--font-mono);
+}
+
+.summaryGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: var(--surface);
+}
+
+.summaryGrid .metric {
+  min-height: 78px;
+  align-content: center;
+  padding: 17px;
+}
+
+.summaryGrid .metric b {
+  font-size: 20px;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(9, 11, 10, 0.62);
+  padding: 22px;
+}
+
+.sectionTitle {
+  align-items: flex-start;
+}
+
+.sectionTitle h3 {
+  font-size: 20px;
+}
+
+.objectiveGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.objectiveCard {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 17px;
+}
+
+.objectiveCard > span,
+.objectiveCard > small,
+.objectiveCard > b {
+  color: var(--dim);
+  font-size: 8px;
+}
+
+.objectiveCard > span {
+  color: var(--accent);
+  font: 500 8px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.objectiveCard > strong {
+  font: 500 25px var(--font-mono);
+}
+
+.objectiveCard > strong i {
+  margin: 0 7px;
+  color: var(--dim);
+  font-style: normal;
+}
+
+.objectiveCard > div {
+  height: 5px;
+  overflow: hidden;
+  margin-top: 6px;
+  border-radius: 99px;
+  background: var(--surface-3);
+}
+
+.objectiveCard > div i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.sideGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.sideCard {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  padding: 18px;
+}
+
+.sideCard[data-side='blue'] {
+  box-shadow: inset 0 2px 0 rgba(97, 230, 210, 0.42);
+}
+
+.sideCard[data-side='red'] {
+  box-shadow: inset 0 2px 0 rgba(255, 123, 114, 0.42);
+}
+
+.sideCard h4 {
+  margin: 5px 0 0;
+  font-size: 16px;
+}
+
+.sideCard > header > div:last-child {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+}
+
+.sideCard > header strong {
+  font: 500 16px var(--font-mono);
+}
+
+.sideCard > header small {
+  color: var(--dim);
+  font-size: 8px;
+}
+
+.priorityGrid {
+  display: grid;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.priorityList {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(9, 11, 10, 0.55);
+  padding: 13px;
+}
+
+.priorityList h5 {
+  margin: 0 0 9px;
+  color: var(--dim);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.priorityList > p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 8px;
+}
+
+.priorityList > div {
+  display: grid;
+  gap: 5px;
+}
+
+.priorityList article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 25px 34px;
+  align-items: center;
+  gap: 7px;
+}
+
+.priorityList article span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.priorityList article strong,
+.priorityList article small {
+  font: 500 8px var(--font-mono);
+  text-align: right;
+}
+
+.priorityList article small {
+  color: var(--dim);
+}
+
+.inlineEmpty {
+  margin-top: 14px;
+  padding: 18px;
+  font-size: 9px;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.heroTable {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+}
+
+.heroTable th,
+.heroTable td {
+  border-bottom: 1px solid var(--line);
+  padding: 12px;
+  color: var(--muted);
+  font-size: 9px;
+  text-align: left;
+}
+
+.heroTable th {
+  color: var(--dim);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.heroTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.heroTable td b {
+  color: var(--accent);
+  font: 500 9px var(--font-mono);
+}
+
+.heroCell {
+  display: flex;
+  min-width: 150px;
+  align-items: center;
+  gap: 9px;
+}
+
+.heroCell strong {
+  color: var(--text);
+}
+
+@media (max-width: 920px) {
+  .grid,
+  .sideGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summaryGrid .metric:nth-child(3) {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .summaryGrid .metric:nth-child(4) {
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 600px) {
+  .heading,
+  .detailHero,
+  .sectionTitle {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .heading h2 {
+    font-size: 29px;
+  }
+
+  .heading > span,
+  .sectionTitle > span {
+    text-align: left;
+  }
+
+  .profileCard,
+  .panel,
+  .detailHero {
+    padding: 17px;
+  }
+
+  .cardMetrics,
+  .objectiveGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .cardMetrics .metric + .metric,
+  .objectiveGrid .objectiveCard + .objectiveCard {
+    border-left: 0;
+  }
+
+  .cardMetrics .metric + .metric {
+    border-top: 1px solid var(--line);
+  }
+
+  .detailRecord {
+    justify-items: start;
+  }
+
+  .priorityList article {
+    grid-template-columns: auto minmax(0, 1fr) 24px 32px;
+  }
+}
