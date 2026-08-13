@@ -15,6 +15,8 @@ export type ScrimResult = 'Win' | 'Loss';
 export type ScrimStatus = 'Draft' | 'Complete' | 'Reviewed' | 'Shared';
 export type ObjectiveOwner = 'Us' | 'Opponent' | 'None';
 export type WorkspaceRole = 'owner' | 'editor' | 'viewer';
+export type ScrimCaptureSource = 'Manual' | 'Live' | 'Screenshot';
+export type ScrimDataCompleteness = 'Legacy' | 'Team only' | 'Full tracking';
 export type ScrimLiveNoteCategory =
   | 'Review'
   | 'Draft'
@@ -47,7 +49,35 @@ export interface ScrimPlayerGame {
   damageDealt: number;
   damageTaken: number;
   turretDamage: number;
+  teamfightParticipation?: number | null;
   notes: string;
+}
+
+export interface ScrimOpponentPlayerGame {
+  id: string;
+  playerName: string;
+  role?: ScrimRole | null;
+  hero: string;
+  kills: number | null;
+  deaths: number | null;
+  assists: number | null;
+  gold: number | null;
+  damageDealt: number | null;
+  damageTaken: number | null;
+  turretDamage: number | null;
+  teamfightParticipation?: number | null;
+  notes: string;
+}
+
+export interface ScrimImportMeta {
+  source: ScrimCaptureSource;
+  importedAt?: string;
+  battleId?: string;
+  dataScreenshotName?: string;
+  overviewScreenshotName?: string;
+  ourStatsComplete?: boolean;
+  opponentStatsComplete?: boolean;
+  verified?: boolean;
 }
 
 export interface ScrimLiveNote {
@@ -93,6 +123,8 @@ export interface ScrimGame {
   ourBans: string[];
   enemyBans: string[];
   players: ScrimPlayerGame[];
+  opponentPlayers?: ScrimOpponentPlayerGame[];
+  importMeta?: ScrimImportMeta;
   liveClock?: ScrimLiveClock;
   liveNotes?: ScrimLiveNote[];
   notes: string;
@@ -254,6 +286,27 @@ export function playerDerivedStats(player: ScrimPlayerGame, game: ScrimGame) {
     dtpm: player.damageTaken / minutes,
     turretDpm: player.turretDamage / minutes,
   };
+}
+
+export function scrimDataCompleteness(game: ScrimGame): ScrimDataCompleteness {
+  if (game.importMeta?.opponentStatsComplete) return 'Full tracking';
+  if (game.importMeta?.ourStatsComplete || game.importMeta?.source) {
+    return 'Team only';
+  }
+  return 'Legacy';
+}
+
+export function hasOpponentBoxScore(game: ScrimGame) {
+  return Boolean(
+    game.opponentPlayers?.some(
+      (player) =>
+        player.playerName.trim() ||
+        player.hero.trim() ||
+        player.kills !== null ||
+        player.gold !== null ||
+        player.damageDealt !== null,
+    ),
+  );
 }
 
 async function listLocalScrimSessions() {

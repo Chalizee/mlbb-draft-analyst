@@ -20,6 +20,7 @@ import {
   safeRate,
   saveLocalScrimSession,
   saveScrimSession,
+  scrimDataCompleteness,
   type ObjectiveOwner,
   type ScrimAccess,
   type ScrimGame,
@@ -42,6 +43,7 @@ import LiveMatchMode, {
 import PlayerPerformance from '@/components/scrims/PlayerPerformance';
 import PlayerStatInput from '@/components/scrims/PlayerStatInput';
 import OpponentInsights from '@/components/scrims/OpponentInsights';
+import ScreenshotBoxScoreImporter from '@/components/scrims/ScreenshotBoxScoreImporter';
 import TeamPerformance from '@/components/scrims/TeamPerformance';
 import {
   PlayerNameInput,
@@ -58,6 +60,7 @@ type SaveState =
   | 'Sync failed';
 type GoldMinute = 5 | 10 | 15;
 type GoldOwner = 'ours' | 'enemy';
+type CoverageFilter = 'all' | 'full' | 'legacy';
 
 const GOLD_FIELDS = {
   5: { ours: 'ourGold5', enemy: 'enemyGold5', difference: 'goldDiff5' },
@@ -82,6 +85,7 @@ export default function ScrimsPage() {
   const [migrationState, setMigrationState] = useState('');
   const [smartInputMessage, setSmartInputMessage] = useState('');
   const [liveMode, setLiveMode] = useState(false);
+  const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>('all');
 
   useEffect(() => {
     let cancelled = false;
@@ -186,6 +190,20 @@ export default function ScrimsPage() {
     [dashboardSessions],
   );
   const opponentRows = useMemo(() => buildOpponentDashboard(sessions), [sessions]);
+  const visibleSessions = useMemo(
+    () =>
+      sessions.filter((session) => {
+        if (coverageFilter === 'all') return true;
+        const hasFull = session.games.some(
+          (game) => scrimDataCompleteness(game) === 'Full tracking',
+        );
+        const hasLegacyOrTeamOnly = session.games.some(
+          (game) => scrimDataCompleteness(game) !== 'Full tracking',
+        );
+        return coverageFilter === 'full' ? hasFull : hasLegacyOrTeamOnly;
+      }),
+    [coverageFilter, sessions],
+  );
 
   const activeGame =
     activeSession?.games.find((game) => game.id === activeGameId) ??
@@ -280,7 +298,17 @@ export default function ScrimsPage() {
   }
 
   function finishLiveGame(nextGame: ScrimGame) {
-    replaceActiveGame(nextGame);
+    replaceActiveGame({
+      ...nextGame,
+      importMeta: {
+        ...nextGame.importMeta,
+        source:
+          nextGame.importMeta?.source === 'Screenshot'
+            ? 'Screenshot'
+            : 'Live',
+        verified: true,
+      },
+    });
     setLiveMode(false);
     setSmartInputMessage('Live capture saved. Review the remaining game fields below.');
   }
@@ -703,7 +731,19 @@ export default function ScrimsPage() {
               <p className="eyebrow">HISTORY</p>
               <h2>Scrim sessions</h2>
             </div>
-            <p>Newest update first. Draft sessions can be resumed anytime.</p>
+            <label className="coverage-filter">
+              <span>DATA COVERAGE</span>
+              <select
+                value={coverageFilter}
+                onChange={(event) =>
+                  setCoverageFilter(event.target.value as CoverageFilter)
+                }
+              >
+                <option value="all">All data</option>
+                <option value="full">Full tracking only</option>
+                <option value="legacy">Legacy / team only</option>
+              </select>
+            </label>
           </div>
 
           {!hydrated ? (
@@ -724,9 +764,17 @@ export default function ScrimsPage() {
             </div>
           ) : (
             <div className="session-list">
-              {sessions.map((session) => {
+              {visibleSessions.length === 0 && (
+                <div className="empty-panel compact-empty">
+                  No sessions match this data coverage filter.
+                </div>
+              )}
+              {visibleSessions.map((session) => {
                 const wins = session.games.filter(
                   (game) => game.result === 'Win',
+                ).length;
+                const fullGames = session.games.filter(
+                  (game) => scrimDataCompleteness(game) === 'Full tracking',
                 ).length;
                 return (
                   <div
@@ -755,6 +803,14 @@ export default function ScrimsPage() {
                           {wins}-{session.games.length - wins}
                         </strong>
                         <span>{session.games.length} games</span>
+                        <em
+                          className="coverage-badge"
+                          data-coverage={fullGames > 0 ? 'full' : 'legacy'}
+                        >
+                          {fullGames > 0
+                            ? `${fullGames}/${session.games.length} full`
+                            : 'Legacy'}
+                        </em>
                       </div>
                       <StatusBadge status={session.status} />
                       <b>→</b>
@@ -885,6 +941,11 @@ export default function ScrimsPage() {
                   <small className={game.result === 'Win' ? 'win' : 'loss'}>
                     {game.result === 'Win' ? 'W' : 'L'}
                   </small>
+                  <i
+                    className="game-coverage-dot"
+                    data-coverage={scrimDataCompleteness(game)}
+                    title={scrimDataCompleteness(game)}
+                  />
                 </button>
               ))}
             </div>
@@ -912,6 +973,8 @@ export default function ScrimsPage() {
               key={activeGame.id}
               game={activeGame}
               opponent={activeSession.opponent}
+              patch={activeSession.patch}
+              sessions={dashboardSessions}
               saveState={saveState}
               onChange={replaceActiveGame}
               onExit={() => setLiveMode(false)}
@@ -1097,9 +1160,16 @@ export default function ScrimsPage() {
                 </div>
               </div>
 
+              <ScreenshotBoxScoreImporter
+                key={`score-importer-${activeGame.id}`}
+                game={activeGame}
+                disabled={Boolean(readOnly)}
+                onApply={replaceActiveGame}
+              />
+
               <div className="form-panel player-input-panel">
                 <div className="panel-title">
-                  <span>04</span>
+                  <span>05</span>
                   <div>
                     <h2>Player box score</h2>
                     <p>
@@ -1234,7 +1304,7 @@ export default function ScrimsPage() {
 
               <div className="form-panel">
                 <div className="panel-title compact">
-                  <span>05</span>
+                  <span>06</span>
                   <div>
                     <h2>Review notes</h2>
                     <p>Keputusan, pattern, atau konteks yang angka tidak tangkap.</p>

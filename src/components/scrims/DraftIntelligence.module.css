@@ -1,0 +1,193 @@
+.panel {
+  display: grid;
+  gap: 13px;
+  margin-top: 12px;
+  border: 1px solid rgba(186, 252, 82, 0.2);
+  border-radius: 11px;
+  background:
+    radial-gradient(circle at top right, rgba(186, 252, 82, 0.065), transparent 36%),
+    var(--bg);
+  padding: 15px;
+}
+
+.panel > header,
+.panel > footer,
+.memory article,
+.suggestions article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 11px;
+}
+
+.panel > header > div {
+  min-width: 0;
+}
+
+.panel > header span,
+.recommendationGrid h5 {
+  color: var(--accent);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.09em;
+}
+
+.panel h4,
+.panel p,
+.recommendationGrid h5 {
+  margin: 0;
+}
+
+.panel h4 {
+  margin-top: 5px;
+  font-size: 13px;
+}
+
+.panel p {
+  margin-top: 4px;
+  color: var(--dim);
+  font-size: 7px;
+}
+
+.sampleBadge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(186, 252, 82, 0.22);
+  border-radius: 99px;
+  padding: 6px 8px;
+}
+
+.recommendationGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(250px, 0.75fr);
+  gap: 10px;
+}
+
+.recommendationGrid > section {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  padding: 11px;
+}
+
+.recommendationGrid h5 {
+  margin-bottom: 8px;
+}
+
+.suggestions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.suggestions article,
+.memory article {
+  justify-content: flex-start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 7px;
+}
+
+.suggestions article > b {
+  display: grid;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 5px;
+  background: rgba(186, 252, 82, 0.08);
+  color: var(--accent);
+  font: 500 7px var(--font-mono);
+}
+
+.suggestions article > div,
+.memory article > div {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.suggestions strong,
+.memory strong {
+  overflow: hidden;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestions span,
+.memory span {
+  overflow: hidden;
+  color: var(--dim);
+  font-size: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestions small,
+.memory small {
+  flex: 0 0 auto;
+  color: var(--dim);
+  font: 500 6px var(--font-mono);
+}
+
+.suggestions small[data-confidence='high'] {
+  color: var(--cyan);
+}
+
+.suggestions small[data-confidence='medium'] {
+  color: var(--warning);
+}
+
+.memory > div {
+  display: grid;
+  gap: 5px;
+}
+
+.empty {
+  display: grid;
+  min-height: 70px;
+  place-items: center;
+  border: 1px dashed var(--line);
+  border-radius: 7px;
+  padding: 10px;
+  color: var(--dim);
+  font-size: 7px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.panel > footer {
+  align-items: flex-start;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.panel > footer span {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.panel > footer small {
+  color: var(--dim);
+  font-size: 6px;
+  text-align: right;
+}
+
+@media (max-width: 860px) {
+  .recommendationGrid,
+  .suggestions {
+    grid-template-columns: 1fr;
+  }
+
+  .panel > header,
+  .panel > footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .panel > footer small {
+    text-align: left;
+  }
+}

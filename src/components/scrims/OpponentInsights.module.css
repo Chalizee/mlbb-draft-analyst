@@ -252,7 +252,7 @@
 }
 
 .summaryGrid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   background: var(--surface);
 }
 
@@ -442,6 +442,99 @@
   font-size: 9px;
 }
 
+.playerThreatGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.playerThreatGrid > article {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 14px;
+}
+
+.playerThreatGrid > article > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.playerThreatGrid > article > header span {
+  color: var(--danger);
+  font: 500 6px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.playerThreatGrid h4 {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.playerThreatGrid > article > header > strong {
+  font: 500 13px var(--font-mono);
+}
+
+.playerHeroStrip {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.playerHeroStrip > span {
+  position: relative;
+}
+
+.playerHeroStrip small {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  width: 13px;
+  height: 13px;
+  place-items: center;
+  border: 1px solid var(--line-bright);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--text);
+  font: 500 6px var(--font-mono);
+}
+
+.playerThreatGrid > article > footer {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.playerThreatGrid > article > footer > span {
+  display: grid;
+  gap: 4px;
+  border-right: 1px solid var(--line);
+  padding: 8px;
+}
+
+.playerThreatGrid > article > footer > span:last-child {
+  border-right: 0;
+}
+
+.playerThreatGrid footer small {
+  color: var(--dim);
+  font: 500 5px var(--font-mono);
+  letter-spacing: 0.06em;
+}
+
+.playerThreatGrid footer b {
+  font: 500 8px var(--font-mono);
+}
+
 .tableWrap {
   overflow-x: auto;
   margin-top: 18px;
@@ -451,7 +544,7 @@
 
 .heroTable {
   width: 100%;
-  min-width: 680px;
+  min-width: 960px;
   border-collapse: collapse;
 }
 
@@ -492,7 +585,8 @@
 
 @media (max-width: 920px) {
   .grid,
-  .sideGrid {
+  .sideGrid,
+  .playerThreatGrid {
     grid-template-columns: 1fr;
   }
 
@@ -506,6 +600,11 @@
   }
 
   .summaryGrid .metric:nth-child(4) {
+    border-top: 1px solid var(--line);
+  }
+
+  .summaryGrid .metric:nth-child(5) {
+    border-left: 0;
     border-top: 1px solid var(--line);
   }
 }

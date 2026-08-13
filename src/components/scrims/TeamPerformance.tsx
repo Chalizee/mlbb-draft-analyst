@@ -5,6 +5,7 @@ import HeroAvatar from '@/components/ui/HeroAvatar';
 import { HERO_DATA } from '@/data/heroData';
 import {
   safeRate,
+  scrimDataCompleteness,
   type ScrimGame,
   type ScrimSession,
 } from '@/lib/scrimDatabase';
@@ -150,6 +151,7 @@ interface PatchLedgerRow extends PatchOption {
 
 const ALL_PATCHES = '__all__';
 const UNLABELLED_PATCH = '__unlabelled__';
+type CoverageScope = 'all' | 'full' | 'legacy';
 const numberFormat = new Intl.NumberFormat('en-US');
 
 const HERO_VISUALS = new Map(
@@ -162,14 +164,19 @@ const HERO_VISUALS = new Map(
 export default function TeamPerformance({ sessions }: TeamPerformanceProps) {
   const patchOptions = useMemo(() => buildPatchOptions(sessions), [sessions]);
   const [selectedPatch, setSelectedPatch] = useState(ALL_PATCHES);
+  const [coverageScope, setCoverageScope] = useState<CoverageScope>('all');
   const activePatch =
     selectedPatch === ALL_PATCHES ||
     patchOptions.some((option) => option.key === selectedPatch)
       ? selectedPatch
       : ALL_PATCHES;
   const filteredSessions = useMemo(
-    () => filterSessionsByPatch(sessions, activePatch),
-    [activePatch, sessions],
+    () =>
+      filterSessionsByCoverage(
+        filterSessionsByPatch(sessions, activePatch),
+        coverageScope,
+      ),
+    [activePatch, coverageScope, sessions],
   );
   const snapshot = useMemo(
     () => buildTeamSnapshot(filteredSessions),
@@ -189,23 +196,38 @@ export default function TeamPerformance({ sessions }: TeamPerformanceProps) {
           <p>TEAM PERFORMANCE</p>
           <h2>Read the team through recorded outcomes.</h2>
         </div>
-        <label className={styles.patchFilter}>
-          <span>PATCH FILTER</span>
-          <select
-            value={activePatch}
-            onChange={(event) => setSelectedPatch(event.target.value)}
-          >
-            <option value={ALL_PATCHES}>All patches</option>
-            {patchOptions.map((option) => (
-              <option value={option.key} key={option.key}>
-                {option.label} · {option.games} games
-              </option>
-            ))}
-          </select>
-          <small>
+        <div className={styles.filterGroup}>
+          <label className={styles.patchFilter}>
+            <span>PATCH FILTER</span>
+            <select
+              value={activePatch}
+              onChange={(event) => setSelectedPatch(event.target.value)}
+            >
+              <option value={ALL_PATCHES}>All patches</option>
+              {patchOptions.map((option) => (
+                <option value={option.key} key={option.key}>
+                  {option.label} · {option.games} games
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.patchFilter}>
+            <span>DATA COVERAGE</span>
+            <select
+              value={coverageScope}
+              onChange={(event) =>
+                setCoverageScope(event.target.value as CoverageScope)
+              }
+            >
+              <option value="all">All recorded games</option>
+              <option value="full">Full opponent tracking</option>
+              <option value="legacy">Legacy / team only</option>
+            </select>
+          </label>
+          <small className={styles.filterSummary}>
             {filteredSessions.length} sessions · {snapshot.games} games
           </small>
-        </label>
+        </div>
       </header>
 
       {snapshot.games === 0 ? (
@@ -220,7 +242,9 @@ export default function TeamPerformance({ sessions }: TeamPerformanceProps) {
         <div className={styles.dashboard}>
           <header className={styles.dashboardHero}>
             <div>
-              <span className={styles.scopeBadge}>{activePatchLabel}</span>
+              <span className={styles.scopeBadge}>
+                {activePatchLabel} · {coverageLabel(coverageScope)}
+              </span>
               <h3>Chalize team sample</h3>
               <p>
                 Raw scrim evidence only. Every rate below keeps its recorded
@@ -1686,6 +1710,28 @@ function filterSessionsByPatch(sessions: ScrimSession[], patchKey: string) {
     const key = cleanPatch ? normalizeName(cleanPatch) : UNLABELLED_PATCH;
     return key === patchKey;
   });
+}
+
+function filterSessionsByCoverage(
+  sessions: ScrimSession[],
+  coverage: CoverageScope,
+) {
+  if (coverage === 'all') return sessions;
+  return sessions
+    .map((session) => ({
+      ...session,
+      games: session.games.filter((game) => {
+        const full = scrimDataCompleteness(game) === 'Full tracking';
+        return coverage === 'full' ? full : !full;
+      }),
+    }))
+    .filter((session) => session.games.length > 0);
+}
+
+function coverageLabel(coverage: CoverageScope) {
+  if (coverage === 'full') return 'Full tracking';
+  if (coverage === 'legacy') return 'Legacy / team only';
+  return 'All coverage';
 }
 
 function checkpointAt(snapshot: TeamSnapshot, minute: 5 | 10 | 15) {

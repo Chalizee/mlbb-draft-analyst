@@ -31,6 +31,22 @@ interface HeroPoolEntry extends CountEntry {
   wins: number;
   blue: number;
   red: number;
+  trackedGames: number;
+  averageDamage: number;
+  averageGold: number;
+  averageKda: number;
+  playerNames: string[];
+}
+
+interface OpponentPlayerProfile {
+  key: string;
+  name: string;
+  games: number;
+  wins: number;
+  averageDamage: number;
+  averageGold: number;
+  averageKda: number;
+  topHeroes: CountEntry[];
 }
 
 interface ObjectiveEntry {
@@ -69,6 +85,8 @@ interface OpponentProfile {
   firstLord: FirstObjectiveEntry;
   objectives: ObjectiveEntry[];
   heroPool: HeroPoolEntry[];
+  players: OpponentPlayerProfile[];
+  fullBoxScoreGames: number;
   sideDrafts: OpponentSideDraft[];
 }
 
@@ -152,7 +170,9 @@ export default function OpponentInsights({ sessions }: OpponentInsightsProps) {
                   {profile.heroPool.length === 0 && <small>No picks recorded</small>}
                 </div>
                 <footer>
-                  <span>{profile.sessions} sessions · {profile.averageDuration.toFixed(1)}m avg</span>
+                  <span>
+                    {profile.sessions} sessions · {profile.fullBoxScoreGames} full box scores
+                  </span>
                   <strong>VIEW FULL PROFILE</strong>
                 </footer>
               </button>
@@ -203,6 +223,10 @@ function OpponentDetail({
           label="THEIR FIRST LORD"
           value={profile.firstLord.recorded > 0 ? `${Math.round(profile.firstLord.rate)}%` : '—'}
         />
+        <Metric
+          label="FULL PLAYER TRACKING"
+          value={`${profile.fullBoxScoreGames}/${profile.games}`}
+        />
       </section>
 
       <section className={styles.panel}>
@@ -243,8 +267,54 @@ function OpponentDetail({
 
       <section className={styles.panel}>
         <SectionTitle
+          eyebrow="OPPONENT PLAYERS"
+          title="Player + hero threat memory"
+          meta={`${profile.players.length} TRACKED NICKS`}
+        />
+        {profile.players.length === 0 ? (
+          <div className={styles.inlineEmpty}>
+            Legacy games stay in the profile, but they do not invent missing enemy stats.
+            Import a verified two-screen box score to start this table.
+          </div>
+        ) : (
+          <div className={styles.playerThreatGrid}>
+            {profile.players.map((player) => (
+              <article key={player.key}>
+                <header>
+                  <div>
+                    <span>OPPONENT PLAYER</span>
+                    <h4>{player.name || 'Unknown player'}</h4>
+                  </div>
+                  <strong>{player.wins}-{player.games - player.wins}</strong>
+                </header>
+                <div className={styles.playerHeroStrip}>
+                  {player.topHeroes.slice(0, 4).map((hero) => (
+                    <span key={hero.name} title={`${hero.name} · ${hero.count} games`}>
+                      <HeroAvatar
+                        name={hero.name}
+                        imageUrl={heroVisual(hero.name)?.imageUrl}
+                        size="xs"
+                      />
+                      <small>{hero.count}</small>
+                    </span>
+                  ))}
+                </div>
+                <footer>
+                  <span><small>AVG DAMAGE</small><b>{formatMetric(player.averageDamage)}</b></span>
+                  <span><small>AVG GOLD</small><b>{formatMetric(player.averageGold)}</b></span>
+                  <span><small>AVG KDA</small><b>{player.averageKda.toFixed(1)}</b></span>
+                  <span><small>SAMPLE</small><b>{player.games}</b></span>
+                </footer>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className={styles.panel}>
+        <SectionTitle
           eyebrow="HERO POOL"
-          title="Every recorded opponent pick"
+          title="Every recorded opponent pick and box score"
           meta={`${profile.heroPool.length} UNIQUE HEROES`}
         />
         {profile.heroPool.length === 0 ? (
@@ -260,6 +330,9 @@ function OpponentDetail({
                   <th>WR</th>
                   <th>First Pick</th>
                   <th>Second Pick</th>
+                  <th>Tracked</th>
+                  <th>Avg damage</th>
+                  <th>Avg gold</th>
                 </tr>
               </thead>
               <tbody>
@@ -280,6 +353,9 @@ function OpponentDetail({
                     <td><b>{Math.round(safeRate(hero.wins, hero.count) * 100)}%</b></td>
                     <td>{hero.blue}</td>
                     <td>{hero.red}</td>
+                    <td>{hero.trackedGames || '—'}</td>
+                    <td>{hero.trackedGames ? formatMetric(hero.averageDamage) : '—'}</td>
+                    <td>{hero.trackedGames ? formatMetric(hero.averageGold) : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -434,6 +510,10 @@ function buildOpponentProfiles(sessions: ScrimSession[]): OpponentProfile[] {
         firstLord: buildFirstObjective(records, 'firstLord', 'First Lord'),
         objectives: buildObjectives(records),
         heroPool: buildHeroPool(records),
+        players: buildOpponentPlayers(records),
+        fullBoxScoreGames: records.filter(
+          (record) => record.game.importMeta?.opponentStatsComplete,
+        ).length,
         sideDrafts: [
           buildOpponentSideDraft(records, 'Blue'),
           buildOpponentSideDraft(records, 'Red'),
@@ -456,6 +536,11 @@ function buildHeroPool(records: OpponentGameRecord[]): HeroPoolEntry[] {
         wins: 0,
         blue: 0,
         red: 0,
+        trackedGames: 0,
+        averageDamage: 0,
+        averageGold: 0,
+        averageKda: 0,
+        playerNames: [],
       };
       entry.count += 1;
       entry.wins += record.game.result === 'Loss' ? 1 : 0;
@@ -463,14 +548,142 @@ function buildHeroPool(records: OpponentGameRecord[]): HeroPoolEntry[] {
       entry.red += side === 'Red' ? 1 : 0;
       heroes.set(key, entry);
     });
+
+    record.game.opponentPlayers?.forEach((player) => {
+      const name = canonicalHeroName(player.hero);
+      if (!name) return;
+      const key = normalize(name);
+      const entry = heroes.get(key) ?? {
+        name,
+        count: 0,
+        wins: 0,
+        blue: 0,
+        red: 0,
+        trackedGames: 0,
+        averageDamage: 0,
+        averageGold: 0,
+        averageKda: 0,
+        playerNames: [],
+      };
+      entry.trackedGames += 1;
+      entry.averageDamage += player.damageDealt ?? 0;
+      entry.averageGold += player.gold ?? 0;
+      entry.averageKda += safeRate(
+        (player.kills ?? 0) + (player.assists ?? 0),
+        Math.max(player.deaths ?? 0, 1),
+      );
+      const playerName = player.playerName.trim();
+      if (
+        playerName &&
+        !entry.playerNames.some(
+          (candidate) => normalize(candidate) === normalize(playerName),
+        )
+      ) {
+        entry.playerNames.push(playerName);
+      }
+      heroes.set(key, entry);
+    });
   });
 
-  return [...heroes.values()].sort(
+  return [...heroes.values()]
+    .map((entry) => ({
+      ...entry,
+      averageDamage: safeRate(entry.averageDamage, entry.trackedGames),
+      averageGold: safeRate(entry.averageGold, entry.trackedGames),
+      averageKda: safeRate(entry.averageKda, entry.trackedGames),
+    }))
+    .sort(
     (a, b) =>
       b.count - a.count ||
       b.wins - a.wins ||
       a.name.localeCompare(b.name),
-  );
+    );
+}
+
+function buildOpponentPlayers(
+  records: OpponentGameRecord[],
+): OpponentPlayerProfile[] {
+  const players = new Map<
+    string,
+    {
+      key: string;
+      name: string;
+      games: number;
+      wins: number;
+      totalDamage: number;
+      damageSamples: number;
+      totalGold: number;
+      goldSamples: number;
+      totalKda: number;
+      kdaSamples: number;
+      heroes: string[];
+    }
+  >();
+
+  records.forEach((record) => {
+    record.game.opponentPlayers?.forEach((player, index) => {
+      const cleanName = player.playerName.trim();
+      const key = normalize(cleanName) || `unknown-slot-${index}`;
+      const entry = players.get(key) ?? {
+        key,
+        name: cleanName,
+        games: 0,
+        wins: 0,
+        totalDamage: 0,
+        damageSamples: 0,
+        totalGold: 0,
+        goldSamples: 0,
+        totalKda: 0,
+        kdaSamples: 0,
+        heroes: [],
+      };
+      entry.games += 1;
+      entry.wins += record.game.result === 'Loss' ? 1 : 0;
+      if (player.damageDealt !== null) {
+        entry.totalDamage += player.damageDealt;
+        entry.damageSamples += 1;
+      }
+      if (player.gold !== null) {
+        entry.totalGold += player.gold;
+        entry.goldSamples += 1;
+      }
+      if (
+        player.kills !== null &&
+        player.deaths !== null &&
+        player.assists !== null
+      ) {
+        entry.totalKda += safeRate(
+          player.kills + player.assists,
+          Math.max(player.deaths, 1),
+        );
+        entry.kdaSamples += 1;
+      }
+      if (player.hero.trim()) entry.heroes.push(player.hero.trim());
+      players.set(key, entry);
+    });
+  });
+
+  return [...players.values()]
+    .map((player) => ({
+      key: player.key,
+      name: player.name,
+      games: player.games,
+      wins: player.wins,
+      averageDamage: safeRate(player.totalDamage, player.damageSamples),
+      averageGold: safeRate(player.totalGold, player.goldSamples),
+      averageKda: safeRate(player.totalKda, player.kdaSamples),
+      topHeroes: countValues(player.heroes),
+    }))
+    .sort(
+      (a, b) =>
+        b.wins - a.wins ||
+        b.averageDamage - a.averageDamage ||
+        b.games - a.games,
+    );
+}
+
+function formatMetric(value: number) {
+  return Math.round(value).toLocaleString('en-US');
 }
 
 function buildObjectives(records: OpponentGameRecord[]): ObjectiveEntry[] {

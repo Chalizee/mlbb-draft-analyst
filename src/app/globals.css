@@ -2067,6 +2067,33 @@ a {
   text-align: right;
 }
 
+.coverage-filter {
+  display: grid;
+  min-width: 190px;
+  gap: 5px;
+}
+
+.coverage-filter > span {
+  color: var(--dim);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.1em;
+  text-align: right;
+}
+
+.coverage-filter select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  background: var(--surface);
+  padding: 9px 10px;
+  color: var(--text);
+  font-size: 9px;
+}
+
+.compact-empty {
+  min-height: 150px;
+}
+
 .empty-panel {
   display: grid;
   min-height: 290px;
@@ -2149,6 +2176,24 @@ a {
 .session-record span {
   color: var(--dim);
   font-size: 10px;
+}
+
+.coverage-badge {
+  width: max-content;
+  margin-top: 2px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 3px 6px;
+  color: var(--dim);
+  font: 500 6px var(--font-mono);
+  font-style: normal;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.coverage-badge[data-coverage='full'] {
+  border-color: rgba(97, 230, 210, 0.28);
+  color: var(--cyan);
 }
 
 .session-opponent small,
@@ -2613,6 +2658,22 @@ a {
   color: var(--danger);
 }
 
+.game-coverage-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--dim);
+}
+
+.game-coverage-dot[data-coverage='Full tracking'] {
+  background: var(--cyan);
+  box-shadow: 0 0 7px rgba(97, 230, 210, 0.55);
+}
+
+.game-coverage-dot[data-coverage='Team only'] {
+  background: var(--warning);
+}
+
 .add-game-button {
   border: 1px solid var(--line);
   background: var(--surface);
@@ -3042,6 +3103,14 @@ a {
   }
 
   .section-heading > p {
+    text-align: left;
+  }
+
+  .coverage-filter {
+    width: 100%;
+  }
+
+  .coverage-filter > span {
     text-align: left;
   }
 

@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { HERO_DATA } from '@/data/heroData';
 import HeroAvatar from '@/components/ui/HeroAvatar';
+import DraftIntelligence from '@/components/scrims/DraftIntelligence';
 import {
   makeId,
   type ObjectiveOwner,
@@ -18,6 +19,7 @@ import {
   type ScrimLiveNoteCategory,
   type ScrimResult,
   type ScrimSide,
+  type ScrimSession,
 } from '@/lib/scrimDatabase';
 import styles from './LiveMatchMode.module.css';
 
@@ -38,6 +40,8 @@ type GoldMinute = 5 | 10 | 15;
 interface LiveMatchModeProps {
   game: ScrimGame;
   opponent: string;
+  patch: string;
+  sessions: ScrimSession[];
   saveState: string;
   onChange: (game: ScrimGame) => void;
   onExit: () => void;
@@ -114,6 +118,8 @@ export function LiveModeButton({ onClick }: { onClick: () => void }) {
 export default function LiveMatchMode({
   game,
   opponent,
+  patch,
+  sessions,
   saveState,
   onChange,
   onExit,
@@ -180,7 +186,14 @@ export default function LiveMatchMode({
       </nav>
 
       {stage === 'draft' ? (
-        <LiveDraft game={game} onChange={onChange} onNext={() => setStage('game')} />
+        <LiveDraft
+          game={game}
+          opponent={opponent}
+          patch={patch}
+          sessions={sessions}
+          onChange={onChange}
+          onNext={() => setStage('game')}
+        />
       ) : (
         <LiveGame
           game={game}
@@ -206,10 +219,16 @@ export default function LiveMatchMode({
 
 function LiveDraft({
   game,
+  opponent,
+  patch,
+  sessions,
   onChange,
   onNext,
 }: {
   game: ScrimGame;
+  opponent: string;
+  patch: string;
+  sessions: ScrimSession[];
   onChange: (game: ScrimGame) => void;
   onNext: () => void;
 }) {
@@ -382,6 +401,23 @@ function LiveDraft({
           </div>
         )}
       </div>
+
+      <DraftIntelligence
+        sessions={sessions}
+        game={game}
+        opponent={opponent}
+        patch={patch}
+        context={
+          activeStep
+            ? {
+                owner: activeStep.side === game.side ? 'our' : 'enemy',
+                kind: activeStep.kind,
+                slot: activeStep.index + 1,
+                phase: activeStep.phase,
+              }
+            : null
+        }
+      />
 
       <footer className={styles.panelActions}>
         <button type="button" disabled={lastCompletedDraftStep(game) < 0} onClick={undoLast}>

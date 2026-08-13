@@ -34,6 +34,19 @@
   gap: 7px;
 }
 
+.filterGroup {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(190px, 1fr));
+  gap: 7px 9px;
+}
+
+.filterSummary {
+  grid-column: 1 / -1;
+  color: var(--dim);
+  font-size: 8px;
+  text-align: right;
+}
+
 .patchFilter > span {
   color: var(--accent);
   font: 500 8px var(--font-mono);
@@ -1204,8 +1217,18 @@
     flex-direction: column;
   }
 
-  .patchFilter {
+  .patchFilter,
+  .filterGroup {
     width: 100%;
+  }
+
+  .filterGroup {
+    grid-template-columns: 1fr;
+  }
+
+  .filterSummary {
+    grid-column: auto;
+    text-align: left;
   }
 
   .patchFilter > span,
