@@ -603,6 +603,10 @@ function LiveGame({
   const [now, setNow] = useState(() => Date.now());
   const [markFeedback, setMarkFeedback] = useState('');
   const [goldOpen, setGoldOpen] = useState(false);
+  const [lineupOpen, setLineupOpen] = useState(() => needsDraftLineupMapping(game));
+  const [lineupDraft, setLineupDraft] = useState<Record<string, string>>(() =>
+    buildSuggestedLineup(game),
+  );
   const feedbackTimerRef = useRef<number | null>(null);
   const clock = normalizedClock(game.liveClock);
   const running = Boolean(clock.startedAt);
@@ -629,6 +633,7 @@ function LiveGame({
 
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
+      if (lineupOpen || goldOpen) return;
       const target = event.target as HTMLElement | null;
       if (
         event.repeat ||
@@ -843,15 +848,36 @@ function LiveGame({
     flashFeedback('Last event removed');
   }
 
-  function assignHero(playerId: string, hero: string) {
+  function openLineupEditor() {
+    setLineupDraft(buildSuggestedLineup(game));
+    setLineupOpen(true);
+  }
+
+  function updateLineupDraft(playerId: string, hero: string) {
+    setLineupDraft((current) => {
+      const previousHero = current[playerId] ?? '';
+      const swappedPlayerId = Object.entries(current).find(
+        ([id, assignedHero]) => id !== playerId && assignedHero === hero,
+      )?.[0];
+      return {
+        ...current,
+        [playerId]: hero,
+        ...(swappedPlayerId ? { [swappedPlayerId]: previousHero } : {}),
+      };
+    });
+  }
+
+  function confirmLineup() {
+    if (!lineupIsComplete(game, lineupDraft)) return;
     onChange({
       ...game,
-      players: game.players.map((player) => {
-        if (player.id === playerId) return { ...player, hero };
-        if (hero && player.hero === hero) return { ...player, hero: '' };
-        return player;
-      }),
+      players: game.players.map((player) => ({
+        ...player,
+        hero: lineupDraft[player.id] ?? player.hero,
+      })),
     });
+    setLineupOpen(false);
+    flashFeedback('Hero buttons ready');
   }
 
   function finishLiveGame() {
@@ -914,8 +940,10 @@ function LiveGame({
       <div className={styles.consoleMain}>
         <section className={styles.playerDeathDeck}>
           <header>
-            <div><span>PLAYER DEATH KEYS</span><strong>Tap only when our player dies</strong></div>
-            <small>Enemy kill increases automatically</small>
+            <div><span>HERO DEATH KEYS</span><strong>Tap the hero portrait that died</strong></div>
+            <button className={styles.editLineupButton} type="button" onClick={openLineupEditor}>
+              EDIT HERO LINEUP
+            </button>
           </header>
           <div>
             {game.players.map((player, index) => {
@@ -932,20 +960,10 @@ function LiveGame({
                       imageUrl={heroVisual(player.hero)?.imageUrl}
                       size="lg"
                     />
-                    <strong>{player.playerName || player.role}</strong>
-                    <span>{player.hero || 'Assign hero below'}</span>
+                    <strong>{player.hero || 'Hero not set'}</strong>
+                    <span>{player.role} · {player.playerName || 'Player'}</span>
                     <b>{deathEvents} LIVE DEATH{deathEvents === 1 ? '' : 'S'}</b>
                   </button>
-                  <select
-                    aria-label={`Assign hero for ${player.playerName || player.role}`}
-                    value={player.hero}
-                    onChange={(event) => assignHero(player.id, event.target.value)}
-                  >
-                    <option value="">{player.role} hero…</option>
-                    {uniqueHeroes([...game.ourPicks, player.hero]).map((hero) => (
-                      <option value={hero} key={hero}>{hero}</option>
-                    ))}
-                  </select>
                 </article>
               );
             })}
@@ -1026,6 +1044,64 @@ function LiveGame({
                 );
               })}
             </div>
+          </section>
+        </div>
+      )}
+
+      {lineupOpen && (
+        <div className={styles.lineupOverlay} role="dialog" aria-modal="true" aria-label="Map draft heroes to players">
+          <section>
+            <header>
+              <div>
+                <span>ONE-TIME LINEUP CHECK</span>
+                <strong>Match our five draft picks to the players</strong>
+                <small>Suggested by lane. Check flex picks before starting the clock.</small>
+              </div>
+              {!needsDraftLineupMapping(game) && (
+                <button type="button" onClick={() => setLineupOpen(false)}>CLOSE</button>
+              )}
+            </header>
+            <div className={styles.lineupMappingGrid}>
+              {game.players.map((player) => {
+                const hero = lineupDraft[player.id] ?? '';
+                return (
+                  <article key={player.id}>
+                    <HeroAvatar
+                      className={styles.lineupHeroAvatar}
+                      name={hero || player.role}
+                      imageUrl={heroVisual(hero)?.imageUrl}
+                      size="lg"
+                    />
+                    <span>{player.role}</span>
+                    <strong>{hero || 'Choose hero'}</strong>
+                    <small>{player.playerName || 'Player name not set'}</small>
+                    <select
+                      aria-label={`Draft hero for ${player.playerName || player.role}`}
+                      value={hero}
+                      onChange={(event) => updateLineupDraft(player.id, event.target.value)}
+                    >
+                      <option value="">Choose hero…</option>
+                      {uniqueHeroes([...game.ourPicks, hero]).map((heroName) => (
+                        <option value={heroName} key={heroName}>{heroName}</option>
+                      ))}
+                    </select>
+                  </article>
+                );
+              })}
+            </div>
+            <footer>
+              <button type="button" onClick={() => setLineupDraft(buildSuggestedLineup(game))}>
+                RESET SUGGESTION
+              </button>
+              <button
+                className={styles.primaryLineupAction}
+                type="button"
+                disabled={!lineupIsComplete(game, lineupDraft)}
+                onClick={confirmLineup}
+              >
+                USE THESE HERO BUTTONS →
+              </button>
+            </footer>
           </section>
         </div>
       )}
@@ -1491,6 +1567,83 @@ function uniqueHeroes(values: string[]) {
     if (clean) heroes.set(normalize(clean), clean);
   });
   return [...heroes.values()];
+}
+
+function buildSuggestedLineup(game: ScrimGame) {
+  const picks = uniqueHeroes(game.ourPicks).slice(0, game.players.length);
+  const pickNames = new Map(picks.map((hero) => [normalize(hero), hero]));
+  const assignments: Record<string, string> = {};
+  const used = new Set<string>();
+
+  game.players.forEach((player) => {
+    const canonicalHero = pickNames.get(normalize(player.hero));
+    if (!canonicalHero || used.has(normalize(canonicalHero))) return;
+    assignments[player.id] = canonicalHero;
+    used.add(normalize(canonicalHero));
+  });
+
+  const remainingHeroes = () =>
+    picks.filter((hero) => !used.has(normalize(hero)));
+  const unresolvedPlayers = () =>
+    game.players.filter((player) => !assignments[player.id]);
+
+  let madeExactMatch = true;
+  while (madeExactMatch) {
+    madeExactMatch = false;
+    unresolvedPlayers().forEach((player) => {
+      const candidates = remainingHeroes().filter((hero) =>
+        heroFitsScrimRole(hero, player.role),
+      );
+      if (candidates.length !== 1) return;
+      assignments[player.id] = candidates[0];
+      used.add(normalize(candidates[0]));
+      madeExactMatch = true;
+    });
+  }
+
+  unresolvedPlayers()
+    .sort((a, b) => {
+      const aMatches = remainingHeroes().filter((hero) => heroFitsScrimRole(hero, a.role)).length;
+      const bMatches = remainingHeroes().filter((hero) => heroFitsScrimRole(hero, b.role)).length;
+      return aMatches - bMatches;
+    })
+    .forEach((player) => {
+      const remaining = remainingHeroes();
+      const hero = remaining.find((candidate) => heroFitsScrimRole(candidate, player.role)) ?? remaining[0];
+      if (!hero) return;
+      assignments[player.id] = hero;
+      used.add(normalize(hero));
+    });
+
+  game.players.forEach((player) => {
+    assignments[player.id] ??= player.hero.trim();
+  });
+  return assignments;
+}
+
+function heroFitsScrimRole(heroName: string, role: ScrimGame['players'][number]['role']) {
+  const hero = heroVisual(heroName);
+  return hero?.laneRecommendation.some(
+    (lane) => normalize(String(lane)) === normalize(role),
+  ) ?? false;
+}
+
+function lineupIsComplete(game: ScrimGame, lineup: Record<string, string>) {
+  const picks = new Set(uniqueHeroes(game.ourPicks).map(normalize));
+  const assigned = game.players.map((player) => normalize(lineup[player.id] ?? ''));
+  return (
+    picks.size >= game.players.length &&
+    assigned.every(Boolean) &&
+    new Set(assigned).size === game.players.length &&
+    assigned.every((hero) => picks.has(hero))
+  );
+}
+
+function needsDraftLineupMapping(game: ScrimGame) {
+  const current = Object.fromEntries(
+    game.players.map((player) => [player.id, player.hero]),
+  );
+  return uniqueHeroes(game.ourPicks).length >= game.players.length && !lineupIsComplete(game, current);
 }
 
 function sortedNotes(notes: ScrimLiveNote[]) {
