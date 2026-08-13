@@ -26,7 +26,7 @@ interface GameRecord {
   game: ScrimGame;
 }
 
-interface HeroSuggestion {
+export interface HeroSuggestion {
   name: string;
   score: number;
   sample: number;
@@ -34,7 +34,7 @@ interface HeroSuggestion {
   reason: string;
 }
 
-interface ThreatMemory {
+export interface ThreatMemory {
   key: string;
   playerName: string;
   hero: string;
@@ -59,7 +59,7 @@ export default function DraftIntelligence({
   context,
 }: DraftIntelligenceProps) {
   const intelligence = useMemo(
-    () => buildIntelligence(sessions, game, opponent, patch, context),
+    () => buildDraftIntelligence(sessions, game, opponent, patch, context),
     [context, game, opponent, patch, sessions],
   );
 
@@ -144,7 +144,7 @@ export default function DraftIntelligence({
   );
 }
 
-function buildIntelligence(
+export function buildDraftIntelligence(
   sessions: ScrimSession[],
   game: ScrimGame,
   opponent: string,

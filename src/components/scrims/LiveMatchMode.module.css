@@ -275,6 +275,524 @@
   color: var(--danger);
 }
 
+.draftBoard {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.banBoard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(28px, 8vw, 130px);
+}
+
+.banBoard > section,
+.pickColumn,
+.heroPool {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg);
+}
+
+.banBoard > section {
+  padding: 10px;
+}
+
+.banBoard > section > header,
+.pickColumn > header,
+.heroPoolToolbar,
+.draftRecommendationBar > header,
+.draftEvidenceFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+}
+
+.banBoard > section > header,
+.pickColumn > header {
+  margin-bottom: 8px;
+}
+
+.banBoard > section > header span,
+.pickColumn > header span,
+.heroPoolToolbar span,
+.draftRecommendationBar header span {
+  color: var(--dim);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.banBoard > section > header strong,
+.pickColumn > header strong {
+  overflow: hidden;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.banBoard > section[data-side='blue'],
+.pickColumn[data-side='blue'] {
+  border-color: rgba(97, 230, 210, 0.25);
+}
+
+.banBoard > section[data-side='red'],
+.pickColumn[data-side='red'] {
+  border-color: rgba(255, 123, 114, 0.25);
+}
+
+.banBoard > section[data-side='blue'] > header span,
+.pickColumn[data-side='blue'] > header span {
+  color: var(--cyan);
+}
+
+.banBoard > section[data-side='red'] > header span,
+.pickColumn[data-side='red'] > header span {
+  color: var(--danger);
+}
+
+.banBoard > section > div {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.draftTurnBar {
+  display: grid;
+  min-height: 55px;
+  place-items: center;
+  place-content: center;
+  gap: 3px;
+  width: min(100%, 380px);
+  margin: 0 auto;
+  border: 1px solid rgba(186, 252, 82, 0.4);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at center, rgba(186, 252, 82, 0.1), transparent 72%),
+    var(--surface);
+  text-align: center;
+}
+
+.draftTurnBar span,
+.draftTurnBar small {
+  color: var(--accent);
+  font: 500 6px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.draftTurnBar strong {
+  font-size: 11px;
+}
+
+.draftTurnBar small {
+  color: var(--dim);
+}
+
+.draftTurnBar[data-complete='true'] {
+  border-color: var(--line-bright);
+}
+
+.draftBoardMain {
+  display: grid;
+  grid-template-areas: 'blue pool red';
+  grid-template-columns: 132px minmax(0, 1fr) 132px;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.pickColumn[data-side='blue'] {
+  grid-area: blue;
+}
+
+.pickColumn[data-side='red'] {
+  grid-area: red;
+}
+
+.pickColumn {
+  padding: 10px;
+}
+
+.pickColumn > div {
+  display: grid;
+  gap: 7px;
+}
+
+.boardSlot {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  align-content: center;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  background: var(--surface);
+  padding: 6px;
+  color: var(--dim);
+  cursor: pointer;
+}
+
+.boardSlot[data-kind='ban'] {
+  min-height: 54px;
+}
+
+.boardSlot[data-kind='pick'] {
+  min-height: 91px;
+}
+
+.boardSlot[data-side='blue'] {
+  border-color: rgba(97, 230, 210, 0.2);
+}
+
+.boardSlot[data-side='red'] {
+  border-color: rgba(255, 123, 114, 0.2);
+}
+
+.boardSlot:disabled {
+  cursor: not-allowed;
+  opacity: 0.28;
+}
+
+.boardSlot[data-active='true'] {
+  border-color: var(--accent);
+  background: rgba(186, 252, 82, 0.08);
+  color: var(--text);
+  box-shadow: 0 0 0 2px rgba(186, 252, 82, 0.08), 0 0 18px rgba(186, 252, 82, 0.05);
+}
+
+.boardSlot > i {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-3);
+  font: 500 8px var(--font-mono);
+  font-style: normal;
+}
+
+.boardSlot[data-kind='pick'] > i {
+  width: 43px;
+  height: 43px;
+  border-radius: 10px;
+}
+
+.boardSlot > span {
+  overflow: hidden;
+  width: 100%;
+  font-size: 6px;
+  font-weight: 800;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boardSlot > small {
+  color: var(--dim);
+  font: 500 5px var(--font-mono);
+}
+
+.boardSlotAvatar {
+  width: 38px !important;
+  height: 38px !important;
+  flex: 0 0 38px !important;
+  border-radius: 50% !important;
+}
+
+.boardSlot[data-kind='pick'] .boardSlotAvatar {
+  width: 48px !important;
+  height: 48px !important;
+  flex-basis: 48px !important;
+  border-radius: 11px !important;
+}
+
+.heroPool {
+  grid-area: pool;
+  overflow: hidden;
+  padding: 12px;
+}
+
+.heroPoolToolbar > div {
+  display: grid;
+  gap: 3px;
+}
+
+.heroPoolToolbar strong {
+  font-size: 9px;
+}
+
+.heroPoolToolbar input {
+  width: min(270px, 48%);
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  outline: none;
+  background: var(--surface);
+  padding: 9px 11px;
+  color: var(--text);
+  font-size: 9px;
+}
+
+.heroPoolToolbar input:focus {
+  border-color: rgba(186, 252, 82, 0.55);
+}
+
+.heroRoleTabs {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  overflow: hidden;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.heroRoleTabs button {
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  padding: 8px 5px;
+  color: var(--dim);
+  font-size: 7px;
+  cursor: pointer;
+}
+
+.heroRoleTabs button:last-child {
+  border-right: 0;
+}
+
+.heroRoleTabs .selectedHeroRole {
+  background: rgba(186, 252, 82, 0.09);
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.draftRecommendationBar {
+  margin-top: 9px;
+  border: 1px solid rgba(186, 252, 82, 0.22);
+  border-radius: 9px;
+  background: rgba(186, 252, 82, 0.035);
+  padding: 8px;
+}
+
+.draftRecommendationBar > header strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 8px;
+}
+
+.draftRecommendationBar > header > small {
+  color: var(--accent);
+  font: 500 6px var(--font-mono);
+}
+
+.draftRecommendationBar > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.draftRecommendationBar > div > button {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 5px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  padding: 5px;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.draftRecommendationBar > div > button:hover:not(:disabled) {
+  border-color: rgba(186, 252, 82, 0.5);
+  color: var(--text);
+}
+
+.draftRecommendationBar > div > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.draftRecommendationBar button > b {
+  grid-row: 1 / span 2;
+  color: var(--accent);
+  font: 700 7px var(--font-mono);
+}
+
+.recommendationAvatar {
+  grid-row: 1 / span 2;
+  width: 27px !important;
+  height: 27px !important;
+  flex: 0 0 27px !important;
+  border-radius: 50% !important;
+}
+
+.draftRecommendationBar button > span,
+.draftRecommendationBar button > small {
+  grid-column: 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draftRecommendationBar button > span {
+  align-self: end;
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.draftRecommendationBar button > small {
+  align-self: start;
+  color: var(--dim);
+  font-size: 5px;
+}
+
+.draftRecommendationBar > p {
+  margin: 7px 0 0;
+  color: var(--dim);
+  font-size: 7px;
+}
+
+.heroGrid {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(62px, 1fr));
+  gap: 5px;
+  overflow-y: auto;
+  max-height: 465px;
+  margin-top: 9px;
+  padding: 2px 3px 3px 0;
+  scrollbar-color: var(--line-bright) transparent;
+}
+
+.heroGrid > button {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  align-content: start;
+  gap: 3px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  outline: none;
+  background: transparent;
+  padding: 5px 3px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.heroGrid > button:hover:not(:disabled),
+.heroGrid > button:focus-visible:not(:disabled) {
+  border-color: var(--line-bright);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.heroGrid > button[data-recommended='true'] {
+  border-color: rgba(186, 252, 82, 0.38);
+  background: rgba(186, 252, 82, 0.055);
+}
+
+.heroGrid > button[data-used='true'] {
+  filter: grayscale(1);
+  opacity: 0.2;
+}
+
+.heroGrid > button:disabled {
+  cursor: not-allowed;
+}
+
+.heroPortrait {
+  position: relative;
+  display: block;
+  width: 45px;
+  height: 45px;
+}
+
+.heroPortrait > b {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  z-index: 3;
+  display: grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: 800 6px var(--font-mono);
+}
+
+.heroGridAvatar {
+  width: 45px !important;
+  height: 45px !important;
+  flex: 0 0 45px !important;
+  border-radius: 50% !important;
+}
+
+.heroGrid > button > strong,
+.heroGrid > button > small {
+  overflow: hidden;
+  width: 100%;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.heroGrid > button > strong {
+  font-size: 6px;
+}
+
+.heroGrid > button > small {
+  color: var(--dim);
+  font: 500 5px var(--font-mono);
+}
+
+.draftEvidenceFooter {
+  align-items: flex-start;
+  margin-top: 9px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.draftEvidenceFooter > span {
+  color: var(--muted);
+  font-size: 6px;
+}
+
+.draftEvidenceFooter > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.draftEvidenceFooter small {
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 3px 5px;
+  color: var(--dim);
+  font: 500 5px var(--font-mono);
+}
+
+.replacingNotice {
+  margin-top: 9px;
+  border: 1px solid rgba(255, 193, 92, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 193, 92, 0.05);
+  padding: 8px 10px;
+  color: var(--warning);
+  font-size: 7px;
+  text-align: center;
+}
+
 .draftProgress {
   display: grid;
   grid-template-columns: repeat(10, minmax(72px, 1fr));
@@ -1162,6 +1680,18 @@
 }
 
 @media (max-width: 1040px) {
+  .draftBoardMain {
+    grid-template-columns: 108px minmax(0, 1fr) 108px;
+  }
+
+  .heroGrid {
+    grid-template-columns: repeat(7, minmax(58px, 1fr));
+  }
+
+  .draftRecommendationBar > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .heroSuggestions {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1211,6 +1741,86 @@
 
   .sideSwitch {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .banBoard {
+    gap: 8px;
+  }
+
+  .banBoard > section {
+    padding: 7px;
+  }
+
+  .banBoard > section > header strong {
+    display: none;
+  }
+
+  .banBoard > section > div {
+    gap: 3px;
+  }
+
+  .boardSlot[data-kind='ban'] {
+    min-height: 49px;
+    padding: 3px;
+  }
+
+  .boardSlot[data-kind='ban'] > span,
+  .boardSlot[data-kind='ban'] > small {
+    display: none;
+  }
+
+  .boardSlot[data-kind='ban'] .boardSlotAvatar {
+    width: 31px !important;
+    height: 31px !important;
+    flex-basis: 31px !important;
+  }
+
+  .draftBoardMain {
+    grid-template-areas:
+      'pool pool'
+      'blue red';
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pickColumn > div {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .boardSlot[data-kind='pick'] {
+    min-height: 75px;
+  }
+
+  .boardSlot[data-kind='pick'] .boardSlotAvatar {
+    width: 39px !important;
+    height: 39px !important;
+    flex-basis: 39px !important;
+  }
+
+  .heroPoolToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .heroPoolToolbar input {
+    width: 100%;
+  }
+
+  .heroRoleTabs {
+    overflow-x: auto;
+    grid-template-columns: repeat(7, minmax(70px, 1fr));
+  }
+
+  .heroGrid {
+    grid-template-columns: repeat(6, minmax(54px, 1fr));
+    max-height: 420px;
+  }
+
+  .draftEvidenceFooter {
+    flex-direction: column;
+  }
+
+  .draftEvidenceFooter > div {
+    justify-content: flex-start;
   }
 
   .nextDraftCard {
@@ -1335,6 +1945,29 @@
   .panelHeading h3,
   .controlSection h3 {
     font-size: 15px;
+  }
+
+  .heroPool {
+    padding: 8px;
+  }
+
+  .draftRecommendationBar > div {
+    grid-template-columns: 1fr;
+  }
+
+  .heroGrid {
+    grid-template-columns: repeat(4, minmax(54px, 1fr));
+  }
+
+  .heroPortrait,
+  .heroGridAvatar {
+    width: 41px !important;
+    height: 41px !important;
+  }
+
+  .pickColumn > div {
+    overflow-x: auto;
+    grid-template-columns: repeat(5, 78px);
   }
 
   .draftProgress {

@@ -9,7 +9,10 @@ import {
 } from 'react';
 import { HERO_DATA } from '@/data/heroData';
 import HeroAvatar from '@/components/ui/HeroAvatar';
-import DraftIntelligence from '@/components/scrims/DraftIntelligence';
+import {
+  buildDraftIntelligence,
+  type DraftRecommendationContext,
+} from '@/components/scrims/DraftIntelligence';
 import {
   makeId,
   type ObjectiveOwner,
@@ -25,6 +28,7 @@ import styles from './LiveMatchMode.module.css';
 
 type LiveStage = 'draft' | 'game';
 type DraftKind = 'ban' | 'pick';
+type HeroRoleFilter = 'All' | 'Tank' | 'Marksman' | 'Fighter' | 'Assassin' | 'Mage' | 'Support';
 type DraftField = 'ourBans' | 'enemyBans' | 'ourPicks' | 'enemyPicks';
 type CounterField =
   | 'teamKills'
@@ -99,6 +103,16 @@ const GOLD_FIELDS = {
 const SORTED_HEROES = [...HERO_DATA].sort((a, b) =>
   a.name.localeCompare(b.name),
 );
+
+const HERO_ROLE_FILTERS: HeroRoleFilter[] = [
+  'All',
+  'Tank',
+  'Marksman',
+  'Fighter',
+  'Assassin',
+  'Mage',
+  'Support',
+];
 
 const HERO_VISUALS = new Map(
   HERO_DATA.flatMap((hero) => [
@@ -234,6 +248,7 @@ function LiveDraft({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<HeroRoleFilter>('All');
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
   const nextIndex = nextDraftStep(game);
   const activeStepIndex = selectedStepIndex ?? nextIndex;
@@ -255,15 +270,51 @@ function LiveDraft({
     );
   }, [currentHero, game.enemyBans, game.enemyPicks, game.ourBans, game.ourPicks]);
   const normalizedQuery = normalize(query);
-  const suggestions = useMemo(
+  const recommendationContext = useMemo<DraftRecommendationContext | null>(
     () =>
-      normalizedQuery
-        ? SORTED_HEROES.filter((hero) => {
-            if (usedNames.has(normalize(hero.name))) return false;
-            return heroSearchText(hero).includes(normalizedQuery);
-          }).slice(0, 10)
-        : [],
-    [normalizedQuery, usedNames],
+      activeStep
+        ? {
+            owner: activeStep.side === game.side ? 'our' : 'enemy',
+            kind: activeStep.kind,
+            slot: activeStep.index + 1,
+            phase: activeStep.phase,
+          }
+        : null,
+    [activeStep, game.side],
+  );
+  const intelligence = useMemo(
+    () =>
+      buildDraftIntelligence(
+        sessions,
+        game,
+        opponent,
+        patch,
+        recommendationContext,
+      ),
+    [game, opponent, patch, recommendationContext, sessions],
+  );
+  const recommendationRanks = useMemo(
+    () =>
+      new Map(
+        intelligence.suggestions.map((suggestion, index) => [
+          normalize(suggestion.name),
+          { rank: index + 1, suggestion },
+        ]),
+      ),
+    [intelligence.suggestions],
+  );
+  const visibleHeroes = useMemo(
+    () =>
+      SORTED_HEROES.filter((hero) => {
+        const matchesRole =
+          roleFilter === 'All' ||
+          hero.role === roleFilter ||
+          hero.secondaryRole === roleFilter;
+        const matchesQuery =
+          !normalizedQuery || heroSearchText(hero).includes(normalizedQuery);
+        return matchesRole && matchesQuery;
+      }),
+    [normalizedQuery, roleFilter],
   );
 
   function selectHero(heroName: string) {
@@ -284,7 +335,6 @@ function LiveDraft({
     });
     setSelectedStepIndex(null);
     setQuery('');
-    window.requestAnimationFrame(() => inputRef.current?.focus());
   }
 
   function undoLast() {
@@ -310,114 +360,242 @@ function LiveDraft({
     setQuery('');
   }
 
+  function selectStep(stepIndex: number) {
+    const step = DRAFT_SEQUENCE[stepIndex];
+    if (!step) return;
+    const value = draftStepValue(game, step);
+    if (!value && stepIndex !== nextIndex) return;
+    setSelectedStepIndex(stepIndex);
+    setQuery('');
+    window.requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  function draftSlot(side: ScrimSide, kind: DraftKind, index: number) {
+    const stepIndex = DRAFT_SEQUENCE.findIndex(
+      (step) => step.side === side && step.kind === kind && step.index === index,
+    );
+    if (stepIndex < 0) return null;
+    const step = DRAFT_SEQUENCE[stepIndex];
+    const field = draftField(step, game.side);
+    const value = game[field][index] ?? '';
+    const isActive = stepIndex === activeStepIndex;
+    const isFuture = !value && stepIndex !== nextIndex;
+    return (
+      <button
+        className={styles.boardSlot}
+        data-active={isActive}
+        data-kind={kind}
+        data-side={side.toLowerCase()}
+        type="button"
+        disabled={isFuture}
+        key={`${side}-${kind}-${index}`}
+        title={isFuture ? 'Wait for the draft order' : draftStepLabel(step, game.side)}
+        onClick={() => selectStep(stepIndex)}
+      >
+        {value ? (
+          <HeroAvatar
+            className={styles.boardSlotAvatar}
+            name={value}
+            imageUrl={heroVisual(value)?.imageUrl}
+            size={kind === 'ban' ? 'sm' : 'md'}
+          />
+        ) : (
+          <i>{kind === 'ban' ? 'B' : 'P'}{index + 1}</i>
+        )}
+        <span>{value || (isActive ? 'SELECT NOW' : 'EMPTY')}</span>
+        <small>{draftOwnerLabel(step, game.side)}</small>
+      </button>
+    );
+  }
+
+  const activeTeamName = activeStep
+    ? activeStep.side === game.side
+      ? 'CHALIZE'
+      : opponent || 'OPPONENT'
+    : '';
+
   return (
     <section className={styles.livePanel}>
       <header className={styles.panelHeading}>
         <div>
-          <span>DRAFT CAPTURE</span>
-          <h3>Follow the highlighted slot</h3>
-          <p>Tap a completed slot to correct it. Future slots stay locked to protect order.</p>
+          <span>LIVE DRAFT BOARD</span>
+          <h3>Pick, ban, and read the evidence in one screen</h3>
+          <p>Hero pool stays in the center. Recommendations come from your saved scrims.</p>
         </div>
         <SideSwitch side={game.side} onChange={(side) => onChange({ ...game, side })} />
       </header>
 
-      <div className={styles.draftProgress}>
-        {DRAFT_SEQUENCE.map((step, index) => {
-          const field = draftField(step, game.side);
-          const value = game[field][step.index] ?? '';
-          const isFutureForTeam = !value && step.index > game[field].length;
-          const isActive = index === activeStepIndex;
-          const owner = step.side === game.side ? 'our' : 'enemy';
-          return (
-            <button
-              className={isActive ? styles.activeDraftStep : ''}
-              data-owner={owner}
-              data-kind={step.kind}
-              type="button"
-              disabled={isFutureForTeam}
-              key={`${step.side}-${step.kind}-${step.index}`}
-              title={draftStepLabel(step, game.side)}
-              onClick={() => {
-                setSelectedStepIndex(index);
-                setQuery('');
-                window.requestAnimationFrame(() => inputRef.current?.focus());
-              }}
-            >
-              <small>{step.phase === 1 ? 'P1' : 'P2'}</small>
-              {value ? (
-                <HeroAvatar
-                  name={value}
-                  imageUrl={heroVisual(value)?.imageUrl}
-                  size="xs"
-                />
-              ) : (
-                <i>{step.kind === 'ban' ? 'B' : 'P'}{step.index + 1}</i>
-              )}
-              <span>{value || draftOwnerLabel(step, game.side)}</span>
-            </button>
-          );
-        })}
-      </div>
+      <div className={styles.draftBoard}>
+        <div className={styles.banBoard}>
+          {(['Blue', 'Red'] as ScrimSide[]).map((side) => (
+            <section data-side={side.toLowerCase()} key={side}>
+              <header>
+                <span>{side} bans</span>
+                <strong>{side === game.side ? 'CHALIZE' : opponent || 'OPPONENT'}</strong>
+              </header>
+              <div>{Array.from({ length: 5 }, (_, index) => draftSlot(side, 'ban', index))}</div>
+            </section>
+          ))}
+        </div>
 
-      <div className={styles.nextDraftCard}>
-        {activeStep ? (
-          <>
-            <div className={styles.nextLabel}>
-              <span>NEXT INPUT</span>
-              <strong>{draftStepLabel(activeStep, game.side)}</strong>
-              {currentHero && <small>Replacing {currentHero}</small>}
-            </div>
-            <div className={styles.heroSearch}>
+        <div className={styles.draftTurnBar} data-complete={!activeStep}>
+          {activeStep ? (
+            <>
+              <span>STEP {activeStepIndex + 1} / {DRAFT_SEQUENCE.length}</span>
+              <strong>{activeTeamName} · {activeStep.kind.toUpperCase()} {activeStep.index + 1}</strong>
+              <small>{activeStep.side} side · Phase {activeStep.phase}</small>
+            </>
+          ) : (
+            <>
+              <span>DRAFT COMPLETE</span>
+              <strong>All 20 slots recorded</strong>
+              <small>Tap any completed slot to correct it</small>
+            </>
+          )}
+        </div>
+
+        <div className={styles.draftBoardMain}>
+          {(['Blue', 'Red'] as ScrimSide[]).map((side) => (
+            <section
+              className={styles.pickColumn}
+              data-side={side.toLowerCase()}
+              key={side}
+            >
+              <header>
+                <span>{side} picks</span>
+                <strong>{side === game.side ? 'US' : 'THEM'}</strong>
+              </header>
+              <div>{Array.from({ length: 5 }, (_, index) => draftSlot(side, 'pick', index))}</div>
+            </section>
+          ))}
+
+          <section className={styles.heroPool}>
+            <header className={styles.heroPoolToolbar}>
+              <div>
+                <span>HERO POOL</span>
+                <strong>{visibleHeroes.length} heroes</strong>
+              </div>
               <input
                 ref={inputRef}
                 value={query}
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="Type 2–3 letters…"
-                aria-label={`Choose hero for ${draftStepLabel(activeStep, game.side)}`}
+                placeholder="Search hero…"
+                aria-label="Search hero pool"
                 onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && suggestions[0]) {
-                    event.preventDefault();
-                    selectHero(suggestions[0].name);
-                  }
-                }}
               />
-              <div className={styles.heroSuggestions}>
-                {suggestions.map((hero) => (
-                  <button type="button" key={hero.name} onClick={() => selectHero(hero.name)}>
-                    <HeroAvatar name={hero.name} imageUrl={hero.imageUrl} size="sm" />
-                    <span>{hero.name}</span>
-                    <small>{hero.role}</small>
-                  </button>
-                ))}
-              </div>
+            </header>
+
+            <nav className={styles.heroRoleTabs} aria-label="Filter hero roles">
+              {HERO_ROLE_FILTERS.map((role) => (
+                <button
+                  className={roleFilter === role ? styles.selectedHeroRole : ''}
+                  type="button"
+                  key={role}
+                  onClick={() => setRoleFilter(role)}
+                >
+                  {role}
+                </button>
+              ))}
+            </nav>
+
+            <div className={styles.draftRecommendationBar}>
+              <header>
+                <div>
+                  <span>DATA ASSISTANT</span>
+                  <strong>{intelligence.primaryLabel}</strong>
+                </div>
+                <small>{intelligence.scopeGames} GAME SAMPLE</small>
+              </header>
+              {intelligence.suggestions.length > 0 ? (
+                <div>
+                  {intelligence.suggestions.map((suggestion, index) => (
+                    <button
+                      type="button"
+                      key={suggestion.name}
+                      disabled={!activeStep || usedNames.has(normalize(suggestion.name))}
+                      title={suggestion.reason}
+                      onClick={() => selectHero(suggestion.name)}
+                    >
+                      <b>#{index + 1}</b>
+                      <HeroAvatar
+                        className={styles.recommendationAvatar}
+                        name={suggestion.name}
+                        imageUrl={heroVisual(suggestion.name)?.imageUrl}
+                        size="xs"
+                      />
+                      <span>{suggestion.name}</span>
+                      <small>{suggestion.reason}</small>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p>Belum ada historical sample yang cocok untuk giliran ini.</p>
+              )}
             </div>
-          </>
-        ) : (
-          <div className={styles.draftComplete}>
-            <span>DRAFT COMPLETE</span>
-            <strong>All 20 slots recorded.</strong>
-          </div>
-        )}
+
+            <div className={styles.heroGrid}>
+              {visibleHeroes.map((hero) => {
+                const key = normalize(hero.name);
+                const unavailable = usedNames.has(key);
+                const recommended = recommendationRanks.get(key);
+                return (
+                  <button
+                    type="button"
+                    data-recommended={Boolean(recommended)}
+                    data-used={unavailable}
+                    disabled={!activeStep || unavailable}
+                    key={hero.name}
+                    title={recommended?.suggestion.reason ?? `${hero.role} · ${hero.specialty}`}
+                    onClick={() => selectHero(hero.name)}
+                  >
+                    <span className={styles.heroPortrait}>
+                      <HeroAvatar
+                        className={styles.heroGridAvatar}
+                        name={hero.name}
+                        imageUrl={hero.imageUrl}
+                        size="md"
+                      />
+                      {recommended && <b>#{recommended.rank}</b>}
+                    </span>
+                    <strong>{hero.name}</strong>
+                    <small>{recommended ? `n=${recommended.suggestion.sample}` : hero.role}</small>
+                  </button>
+                );
+              })}
+            </div>
+
+            <footer className={styles.draftEvidenceFooter}>
+              <span>{intelligence.warning}</span>
+              {intelligence.threats.length > 0 ? (
+                <div>
+                  {intelligence.threats.slice(0, 3).map((threat) => (
+                    <small key={threat.key}>
+                      {threat.playerName || 'Unknown'} · {threat.hero} · n={threat.games}
+                    </small>
+                  ))}
+                </div>
+              ) : (
+                <small>Opponent memory starts after a full box-score import.</small>
+              )}
+            </footer>
+          </section>
+        </div>
       </div>
 
-      <DraftIntelligence
-        sessions={sessions}
-        game={game}
-        opponent={opponent}
-        patch={patch}
-        context={
-          activeStep
-            ? {
-                owner: activeStep.side === game.side ? 'our' : 'enemy',
-                kind: activeStep.kind,
-                slot: activeStep.index + 1,
-                phase: activeStep.phase,
-              }
-            : null
-        }
-      />
+      {currentHero && activeStep && (
+        <div className={styles.replacingNotice}>
+          Replacing <strong>{currentHero}</strong> in {draftStepLabel(activeStep, game.side)}.
+          Choose another hero from the grid.
+        </div>
+      )}
+
+      {visibleHeroes.length === 0 && (
+        <div className={styles.draftComplete}>
+          <span>NO HERO FOUND</span>
+          <strong>Try another search or role filter.</strong>
+        </div>
+      )}
 
       <footer className={styles.panelActions}>
         <button type="button" disabled={lastCompletedDraftStep(game) < 0} onClick={undoLast}>
