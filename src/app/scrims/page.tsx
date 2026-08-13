@@ -18,6 +18,7 @@ import {
   playerDerivedStats,
   resolveScrimAccess,
   safeRate,
+  saveLocalScrimSession,
   saveScrimSession,
   type ObjectiveOwner,
   type ScrimAccess,
@@ -34,6 +35,10 @@ import HeroAutocomplete, {
   PlayerHeroSelect,
 } from '@/components/scrims/HeroAutocomplete';
 import GoldCheckpoint from '@/components/scrims/GoldCheckpoint';
+import LiveMatchMode, {
+  LiveModeButton,
+  LiveNotesReview,
+} from '@/components/scrims/LiveMatchMode';
 import PlayerPerformance from '@/components/scrims/PlayerPerformance';
 import PlayerStatInput from '@/components/scrims/PlayerStatInput';
 import OpponentInsights from '@/components/scrims/OpponentInsights';
@@ -76,6 +81,7 @@ export default function ScrimsPage() {
   const [loadError, setLoadError] = useState('');
   const [migrationState, setMigrationState] = useState('');
   const [smartInputMessage, setSmartInputMessage] = useState('');
+  const [liveMode, setLiveMode] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,10 +125,12 @@ export default function ScrimsPage() {
 
   useEffect(() => {
     if (!hydrated || !activeSession || !access || !access.canEdit) return;
+    let cancelled = false;
 
     const timer = window.setTimeout(() => {
       void saveScrimSession(activeSession, access)
         .then((target) => {
+          if (cancelled) return;
           setSessions((current) => {
             const remaining = current.filter(
               (item) => item.id !== activeSession.id,
@@ -134,12 +142,26 @@ export default function ScrimsPage() {
           setSaveState(target === 'cloud' ? 'Saved online' : 'Local backup');
         })
         .catch(() => {
+          if (cancelled) return;
           setSaveState('Sync failed');
         });
     }, 450);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [access, activeSession, hydrated]);
+
+  useEffect(() => {
+    function protectPendingSave(event: BeforeUnloadEvent) {
+      if (saveState !== 'Saving') return;
+      event.preventDefault();
+    }
+
+    window.addEventListener('beforeunload', protectPendingSave);
+    return () => window.removeEventListener('beforeunload', protectPendingSave);
+  }, [saveState]);
 
   const allGames = useMemo(
     () => sessions.flatMap((session) => session.games),
@@ -180,11 +202,15 @@ export default function ScrimsPage() {
 
   function commit(next: ScrimSession) {
     if (access && !access.canEdit) return;
-    setSaveState('Saving');
-    setReportCopied(false);
-    setActiveSession({
+    const stampedSession = {
       ...next,
       updatedAt: new Date().toISOString(),
+    };
+    setSaveState('Saving');
+    setReportCopied(false);
+    setActiveSession(stampedSession);
+    void saveLocalScrimSession(stampedSession).catch(() => {
+      setSaveState('Sync failed');
     });
   }
 
@@ -198,6 +224,7 @@ export default function ScrimsPage() {
     setActiveSession(session);
     setActiveGameId(session.games[0].id);
     setView('editor');
+    setLiveMode(false);
     setSaveState('Saving');
     setSmartInputMessage(
       filled.count > 0
@@ -210,6 +237,7 @@ export default function ScrimsPage() {
     setActiveSession(session);
     setActiveGameId(session.games[0]?.id ?? '');
     setView('editor');
+    setLiveMode(false);
     setSmartInputMessage('');
     setSaveState(
       access?.mode === 'cloud'
@@ -239,6 +267,22 @@ export default function ScrimsPage() {
         game.id === activeGame.id ? { ...game, [field]: value } : game,
       ),
     });
+  }
+
+  function replaceActiveGame(nextGame: ScrimGame) {
+    if (!activeSession || !activeGame || nextGame.id !== activeGame.id) return;
+    commit({
+      ...activeSession,
+      games: activeSession.games.map((game) =>
+        game.id === activeGame.id ? nextGame : game,
+      ),
+    });
+  }
+
+  function finishLiveGame(nextGame: ScrimGame) {
+    replaceActiveGame(nextGame);
+    setLiveMode(false);
+    setSmartInputMessage('Live capture saved. Review the remaining game fields below.');
   }
 
   function updateOurPicks(heroes: string[]) {
@@ -830,6 +874,7 @@ export default function ScrimsPage() {
                 <button
                   key={game.id}
                   type="button"
+                  disabled={liveMode && activeGame?.id !== game.id}
                   className={activeGame?.id === game.id ? 'active' : ''}
                   onClick={() => {
                     setActiveGameId(game.id);
@@ -843,18 +888,38 @@ export default function ScrimsPage() {
                 </button>
               ))}
             </div>
-            {!readOnly && (
-              <button
-                className="add-game-button"
-                type="button"
-                onClick={() => addGame()}
-              >
-                + Add game
-              </button>
+            {!readOnly && !liveMode && (
+              <>
+                <LiveModeButton
+                  onClick={() => {
+                    setSmartInputMessage('');
+                    setLiveMode(true);
+                  }}
+                />
+                <button
+                  className="add-game-button"
+                  type="button"
+                  onClick={() => addGame()}
+                >
+                  + Add game
+                </button>
+              </>
             )}
           </div>
 
-          {activeGame && (
+          {activeGame && liveMode && (
+            <LiveMatchMode
+              key={activeGame.id}
+              game={activeGame}
+              opponent={activeSession.opponent}
+              saveState={saveState}
+              onChange={replaceActiveGame}
+              onExit={() => setLiveMode(false)}
+              onFinish={finishLiveGame}
+            />
+          )}
+
+          {activeGame && !liveMode && (
             <>
               <div className="form-panel">
                 <div className="panel-title">
@@ -1175,6 +1240,7 @@ export default function ScrimsPage() {
                     <p>Keputusan, pattern, atau konteks yang angka tidak tangkap.</p>
                   </div>
                 </div>
+                <LiveNotesReview notes={activeGame.liveNotes} />
                 <textarea
                   className="game-notes"
                   value={activeGame.notes}

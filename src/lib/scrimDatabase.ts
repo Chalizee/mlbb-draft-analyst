@@ -15,6 +15,13 @@ export type ScrimResult = 'Win' | 'Loss';
 export type ScrimStatus = 'Draft' | 'Complete' | 'Reviewed' | 'Shared';
 export type ObjectiveOwner = 'Us' | 'Opponent' | 'None';
 export type WorkspaceRole = 'owner' | 'editor' | 'viewer';
+export type ScrimLiveNoteCategory =
+  | 'Draft'
+  | 'Rotation'
+  | 'Objective'
+  | 'Teamfight'
+  | 'Mistake'
+  | 'Good Play';
 
 export interface ScrimAccess {
   mode: 'local' | 'cloud' | 'blocked';
@@ -40,6 +47,19 @@ export interface ScrimPlayerGame {
   damageTaken: number;
   turretDamage: number;
   notes: string;
+}
+
+export interface ScrimLiveNote {
+  id: string;
+  elapsedSeconds: number;
+  category: ScrimLiveNoteCategory;
+  text: string;
+  createdAt: string;
+}
+
+export interface ScrimLiveClock {
+  elapsedSeconds: number;
+  startedAt: string | null;
 }
 
 export interface ScrimGame {
@@ -72,6 +92,8 @@ export interface ScrimGame {
   ourBans: string[];
   enemyBans: string[];
   players: ScrimPlayerGame[];
+  liveClock?: ScrimLiveClock;
+  liveNotes?: ScrimLiveNote[];
   notes: string;
 }
 
@@ -102,6 +124,8 @@ class ScrimTrackerDatabase extends Dexie {
 }
 
 let database: ScrimTrackerDatabase | null = null;
+let localSaveQueue: Promise<void> = Promise.resolve();
+let cloudSaveQueue: Promise<void> = Promise.resolve();
 const PRIVATE_WORKSPACE_STORAGE_KEY = 'chalize-private-workspace-id';
 
 export function getScrimDatabase() {
@@ -172,6 +196,11 @@ export function createScrimGame(number: number): ScrimGame {
     ourBans: [],
     enemyBans: [],
     players: SCRIM_ROLES.map(createPlayerRow),
+    liveClock: {
+      elapsedSeconds: 0,
+      startedAt: null,
+    },
+    liveNotes: [],
     notes: '',
   };
 }
@@ -232,10 +261,16 @@ async function listLocalScrimSessions() {
   return db.sessions.orderBy('updatedAt').reverse().toArray();
 }
 
-async function saveLocalScrimSession(session: ScrimSession) {
-  const db = getScrimDatabase();
-  if (!db) return;
-  await db.sessions.put(session);
+export function saveLocalScrimSession(session: ScrimSession) {
+  const operation = localSaveQueue
+    .catch(() => undefined)
+    .then(async () => {
+      const db = getScrimDatabase();
+      if (!db) return;
+      await db.sessions.put(session);
+    });
+  localSaveQueue = operation;
+  return operation;
 }
 
 async function deleteLocalScrimSession(sessionId: string) {
@@ -483,15 +518,19 @@ export async function saveScrimSession(
 
   if (!access || access.mode === 'local') return 'local' as const;
   if (access.mode !== 'cloud' || !access.canEdit) return 'readonly' as const;
-
   const supabase = createSupabaseClient();
   if (!supabase) return 'local' as const;
 
-  const { error } = await supabase
-    .from('scrim_sessions')
-    .upsert(sessionRow(session, access), { onConflict: 'id' });
-
-  if (error) throw new Error(error.message);
+  const operation = cloudSaveQueue
+    .catch(() => undefined)
+    .then(async () => {
+      const { error } = await supabase
+        .from('scrim_sessions')
+        .upsert(sessionRow(session, access), { onConflict: 'id' });
+      if (error) throw new Error(error.message);
+    });
+  cloudSaveQueue = operation;
+  await operation;
   return 'cloud' as const;
 }
 

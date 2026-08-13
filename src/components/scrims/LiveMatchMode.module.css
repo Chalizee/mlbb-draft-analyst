@@ -1,0 +1,1197 @@
+.launchButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid rgba(186, 252, 82, 0.38);
+  border-radius: 9px;
+  background: rgba(186, 252, 82, 0.08);
+  padding: 10px 14px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.launchButton i,
+.liveBadge i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(186, 252, 82, 0.75);
+}
+
+.liveShell {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.liveHeader {
+  position: sticky;
+  top: 10px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid rgba(186, 252, 82, 0.24);
+  border-radius: 13px;
+  background: rgba(12, 15, 12, 0.93);
+  padding: 14px 16px;
+  backdrop-filter: blur(16px);
+}
+
+.liveHeader > div,
+.headerActions,
+.liveBadge {
+  display: flex;
+  align-items: center;
+}
+
+.liveHeader > div:first-child {
+  min-width: 0;
+  gap: 16px;
+}
+
+.liveBadge {
+  flex: 0 0 auto;
+  gap: 7px;
+  border: 1px solid rgba(186, 252, 82, 0.25);
+  border-radius: 99px;
+  padding: 6px 9px;
+  color: var(--accent);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.liveHeader h2,
+.liveHeader p {
+  margin: 0;
+}
+
+.liveHeader h2 {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.liveHeader h2 b {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.liveHeader p {
+  margin-top: 3px;
+  color: var(--dim);
+  font-size: 8px;
+}
+
+.headerActions {
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.saveBadge {
+  color: var(--muted);
+  font: 500 7px var(--font-mono);
+}
+
+.saveBadge[data-state='saved online'] {
+  color: var(--accent);
+}
+
+.saveBadge[data-state='saving'] {
+  color: var(--warning);
+}
+
+.saveBadge[data-state='sync failed'] {
+  color: var(--danger);
+}
+
+.headerActions button,
+.panelActions button,
+.finishBar button {
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 9px 12px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stageTabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+.stageTabs button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  padding: 13px 15px;
+  color: var(--dim);
+  font-size: 10px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stageTabs button:last-child {
+  border-right: 0;
+}
+
+.stageTabs button > span,
+.stageTabs button > small {
+  font: 500 8px var(--font-mono);
+}
+
+.stageTabs button > span {
+  color: var(--dim);
+}
+
+.stageTabs button > small {
+  justify-self: end;
+}
+
+.stageTabs .activeTab {
+  background: rgba(186, 252, 82, 0.06);
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.stageTabs .activeTab > span,
+.stageTabs .activeTab > small {
+  color: var(--accent);
+}
+
+.livePanel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(186, 252, 82, 0.018), transparent 42%),
+    var(--surface);
+  padding: 20px;
+}
+
+.panelHeading,
+.controlSection > header,
+.finishBar,
+.reviewNotes > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.panelHeading > div > span,
+.controlSection > header span,
+.finishBar span,
+.reviewNotes > header span {
+  color: var(--accent);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.1em;
+}
+
+.panelHeading h3,
+.controlSection h3,
+.panelHeading p {
+  margin: 0;
+}
+
+.panelHeading h3,
+.controlSection h3 {
+  margin-top: 5px;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+}
+
+.panelHeading p {
+  margin-top: 5px;
+  color: var(--dim);
+  font-size: 9px;
+}
+
+.panelHeading > strong,
+.controlSection > header > small {
+  color: var(--dim);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.07em;
+}
+
+.sideSwitch {
+  display: grid;
+  grid-template-columns: repeat(2, 105px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.sideSwitch button {
+  display: grid;
+  gap: 2px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: var(--bg);
+  padding: 9px 11px;
+  color: var(--dim);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sideSwitch button:last-child {
+  border-right: 0;
+}
+
+.sideSwitch button span {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.sideSwitch button small {
+  font-size: 7px;
+}
+
+.sideSwitch .selectedSide[data-side='blue'] {
+  background: rgba(97, 230, 210, 0.09);
+  color: var(--cyan);
+}
+
+.sideSwitch .selectedSide[data-side='red'] {
+  background: rgba(255, 123, 114, 0.09);
+  color: var(--danger);
+}
+
+.draftProgress {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(72px, 1fr));
+  gap: 6px;
+  overflow-x: auto;
+  margin-top: 18px;
+  padding-bottom: 5px;
+}
+
+.draftProgress > button {
+  display: grid;
+  min-height: 78px;
+  min-width: 72px;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  background: var(--bg);
+  padding: 7px 5px;
+  color: var(--dim);
+  cursor: pointer;
+}
+
+.draftProgress > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.draftProgress > button[data-owner='our'] {
+  border-color: rgba(97, 230, 210, 0.2);
+}
+
+.draftProgress > button[data-owner='enemy'] {
+  border-color: rgba(255, 123, 114, 0.2);
+}
+
+.draftProgress > button > small {
+  color: var(--dim);
+  font: 500 6px var(--font-mono);
+}
+
+.draftProgress > button > i {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--surface-3);
+  font: 500 8px var(--font-mono);
+  font-style: normal;
+}
+
+.draftProgress > button > span {
+  overflow: hidden;
+  width: 100%;
+  font-size: 7px;
+  font-weight: 700;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draftProgress .activeDraftStep {
+  border-color: rgba(186, 252, 82, 0.75);
+  background: rgba(186, 252, 82, 0.08);
+  color: var(--text);
+  box-shadow: 0 0 0 2px rgba(186, 252, 82, 0.08);
+}
+
+.nextDraftCard {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.28fr) minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg);
+  padding: 16px;
+}
+
+.nextLabel {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  border-right: 1px solid var(--line);
+  padding: 6px 16px 6px 0;
+}
+
+.nextLabel span,
+.draftComplete span {
+  color: var(--accent);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.nextLabel strong,
+.draftComplete strong {
+  font-size: 16px;
+}
+
+.nextLabel small {
+  color: var(--warning);
+  font-size: 7px;
+}
+
+.heroSearch {
+  position: relative;
+  min-width: 0;
+}
+
+.heroSearch > input,
+.noteInputRow > input,
+.editNoteForm input,
+.editNoteForm select,
+.liveGoldGrid input {
+  width: 100%;
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  outline: none;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.heroSearch > input {
+  padding: 11px 12px;
+  font-size: 11px;
+}
+
+.heroSearch > input:focus,
+.noteInputRow > input:focus,
+.editNoteForm input:focus,
+.editNoteForm select:focus,
+.liveGoldGrid input:focus {
+  border-color: rgba(186, 252, 82, 0.55);
+}
+
+.heroSuggestions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.heroSuggestions button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 7px;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.heroSuggestions button:hover,
+.heroSuggestions button:focus-visible {
+  border-color: rgba(186, 252, 82, 0.42);
+  color: var(--text);
+}
+
+.heroSuggestions button > span,
+.heroSuggestions button > small {
+  grid-column: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.heroSuggestions button > span {
+  align-self: end;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.heroSuggestions button > small {
+  align-self: start;
+  color: var(--dim);
+  font-size: 6px;
+}
+
+.heroSuggestions button > :first-child {
+  grid-row: 1 / span 2;
+}
+
+.draftComplete {
+  display: grid;
+  grid-column: 1 / -1;
+  min-height: 82px;
+  place-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.panelActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.panelActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.panelActions .primaryAction,
+.finishBar button,
+.addNoteButton {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.gameTopGrid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.7fr) minmax(300px, 1fr);
+  gap: 10px;
+}
+
+.clockCard,
+.resultCard,
+.counterControl,
+.liveGoldGrid > article {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg);
+  padding: 16px;
+}
+
+.clockCard {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.clockCard > span,
+.resultCard > span {
+  color: var(--dim);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.09em;
+}
+
+.clockCard > strong {
+  font: 500 46px var(--font-mono);
+  letter-spacing: -0.08em;
+}
+
+.clockCard > div {
+  display: grid;
+  grid-template-columns: auto minmax(100px, 1fr) auto;
+  gap: 6px;
+}
+
+.clockCard button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.clockCard .clockToggle {
+  border-color: rgba(186, 252, 82, 0.4);
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.clockCard > small {
+  color: var(--dim);
+  font-size: 7px;
+}
+
+.resultCard {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.resultSwitch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.resultSwitch button {
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  padding: 9px;
+  color: var(--dim);
+  font-size: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.resultSwitch button:last-child {
+  border-right: 0;
+}
+
+.resultSwitch .selectedResult[data-result='win'] {
+  background: rgba(186, 252, 82, 0.09);
+  color: var(--accent);
+}
+
+.resultSwitch .selectedResult[data-result='loss'] {
+  background: rgba(255, 123, 114, 0.09);
+  color: var(--danger);
+}
+
+.controlSection {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(9, 11, 10, 0.55);
+  padding: 16px;
+}
+
+.objectiveControls,
+.liveGoldGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.counterControl {
+  padding: 12px;
+}
+
+.counterControl > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.counterControl > header strong {
+  font-size: 10px;
+}
+
+.counterControl > header small {
+  color: var(--accent);
+  font: 500 7px var(--font-mono);
+}
+
+.counterControl > div,
+.counterControl > footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.counterControl > div > button {
+  display: grid;
+  min-height: 62px;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.counterControl > div > button[data-team='ours'] {
+  border-color: rgba(97, 230, 210, 0.25);
+  color: var(--cyan);
+}
+
+.counterControl > div > button[data-team='enemy'] {
+  border-color: rgba(255, 123, 114, 0.25);
+  color: var(--danger);
+}
+
+.counterControl > div span {
+  font: 500 7px var(--font-mono);
+}
+
+.counterControl > div strong {
+  font: 500 21px var(--font-mono);
+}
+
+.counterControl > footer {
+  margin-top: 5px;
+}
+
+.counterControl > footer button {
+  border: 0;
+  background: transparent;
+  padding: 3px;
+  color: var(--dim);
+  font-size: 6px;
+  cursor: pointer;
+}
+
+.counterControl > footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
+.liveGoldGrid > article {
+  padding: 13px;
+}
+
+.liveGoldGrid > article > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.liveGoldGrid > article > header strong,
+.liveGoldGrid > article > header span,
+.liveGoldGrid label > span {
+  font: 500 7px var(--font-mono);
+}
+
+.liveGoldGrid > article > header span {
+  color: var(--dim);
+}
+
+.liveGoldGrid > article > header span[data-tone='lead'] {
+  color: var(--accent);
+}
+
+.liveGoldGrid > article > header span[data-tone='behind'] {
+  color: var(--danger);
+}
+
+.liveGoldGrid label {
+  display: grid;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.liveGoldGrid label > span {
+  color: var(--dim);
+}
+
+.liveGoldGrid input {
+  padding: 9px 10px;
+  font-size: 10px;
+}
+
+.finishBar {
+  align-items: center;
+  margin-top: 10px;
+  border: 1px solid rgba(186, 252, 82, 0.22);
+  border-radius: 11px;
+  background: rgba(186, 252, 82, 0.04);
+  padding: 13px 15px;
+}
+
+.finishBar > div {
+  display: grid;
+  gap: 4px;
+}
+
+.finishBar small {
+  color: var(--dim);
+  font-size: 7px;
+}
+
+.notesPanel {
+  background:
+    linear-gradient(135deg, rgba(97, 230, 210, 0.025), transparent 42%),
+    var(--surface);
+}
+
+.noteComposer {
+  margin-top: 16px;
+}
+
+.categoryChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.categoryChips button {
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--bg);
+  padding: 6px 9px;
+  color: var(--dim);
+  font-size: 7px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.categoryChips .selectedCategory {
+  border-color: rgba(186, 252, 82, 0.42);
+  background: rgba(186, 252, 82, 0.08);
+  color: var(--accent);
+}
+
+.noteInputRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.noteTimestamp {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.noteTimestamp button {
+  align-self: stretch;
+  border: 0;
+  background: var(--surface);
+  padding: 0 8px;
+  color: var(--dim);
+  font-size: 7px;
+  cursor: pointer;
+}
+
+.noteTimestamp strong {
+  padding: 0 9px;
+  font: 500 10px var(--font-mono);
+}
+
+.noteInputRow > input {
+  padding: 10px 11px;
+  font-size: 10px;
+}
+
+.addNoteButton {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0 14px;
+  font-size: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.addNoteButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.notesEmpty {
+  margin-top: 10px;
+  border: 1px dashed var(--line-bright);
+  border-radius: 9px;
+  padding: 18px;
+  color: var(--dim);
+  font-size: 8px;
+  text-align: center;
+}
+
+.noteTimeline {
+  display: grid;
+  gap: 1px;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--line);
+}
+
+.noteTimeline > article {
+  display: grid;
+  grid-template-columns: 50px 76px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  background: var(--bg);
+  padding: 9px 11px;
+}
+
+.noteTimeline time {
+  color: var(--accent);
+  font: 500 8px var(--font-mono);
+}
+
+.noteTimeline > article > span {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 4px 6px;
+  color: var(--muted);
+  font-size: 6px;
+  font-weight: 700;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.noteTimeline > article > span[data-category='mistake'] {
+  border-color: rgba(255, 123, 114, 0.24);
+  color: var(--danger);
+}
+
+.noteTimeline > article > span[data-category='good play'] {
+  border-color: rgba(186, 252, 82, 0.24);
+  color: var(--accent);
+}
+
+.noteTimeline p {
+  overflow: hidden;
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.noteTimeline > article > div:last-child {
+  display: flex;
+  gap: 4px;
+}
+
+.noteTimeline > article > div:last-child button,
+.editNoteForm button {
+  border: 0;
+  background: transparent;
+  padding: 4px;
+  color: var(--dim);
+  font-size: 7px;
+  cursor: pointer;
+}
+
+.noteTimeline > article > div:last-child button:last-child {
+  color: var(--danger);
+}
+
+.editNoteForm {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 70px 110px minmax(0, 1fr) auto auto;
+  gap: 6px;
+}
+
+.editNoteForm input,
+.editNoteForm select {
+  padding: 7px 8px;
+  font-size: 8px;
+}
+
+.editNoteForm button:nth-last-child(2) {
+  color: var(--accent);
+}
+
+.reviewNotes {
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  padding: 13px;
+}
+
+.reviewNotes > header {
+  align-items: center;
+}
+
+.reviewNotes > header small {
+  color: var(--dim);
+  font-size: 7px;
+}
+
+.reviewNotes > div {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.reviewNotes article {
+  display: grid;
+  grid-template-columns: 50px 80px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.reviewNotes time,
+.reviewNotes article > span {
+  font: 500 7px var(--font-mono);
+}
+
+.reviewNotes time {
+  color: var(--accent);
+}
+
+.reviewNotes article > span {
+  color: var(--dim);
+}
+
+.reviewNotes p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+@media (max-width: 1040px) {
+  .heroSuggestions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .objectiveControls,
+  .liveGoldGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .launchButton {
+    width: 100%;
+  }
+
+  .liveHeader {
+    position: static;
+    align-items: flex-start;
+  }
+
+  .liveHeader > div:first-child {
+    align-items: flex-start;
+  }
+
+  .liveHeader p {
+    display: none;
+  }
+
+  .headerActions {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+
+  .panelHeading,
+  .controlSection > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sideSwitch {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nextDraftCard {
+    grid-template-columns: 1fr;
+  }
+
+  .nextLabel {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 0 0 12px;
+  }
+
+  .heroSuggestions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gameTopGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .noteInputRow {
+    grid-template-columns: 1fr;
+  }
+
+  .noteTimestamp {
+    min-height: 38px;
+  }
+
+  .addNoteButton {
+    min-height: 40px;
+  }
+
+  .noteTimeline > article {
+    grid-template-columns: 48px 74px minmax(0, 1fr);
+  }
+
+  .noteTimeline > article > div:last-child {
+    grid-column: 3;
+    justify-content: flex-end;
+  }
+
+  .editNoteForm {
+    grid-template-columns: 70px 1fr;
+  }
+
+  .editNoteForm input:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 520px) {
+  .liveShell {
+    margin-right: -4px;
+    margin-left: -4px;
+  }
+
+  .livePanel {
+    padding: 14px;
+  }
+
+  .liveHeader {
+    padding: 12px;
+  }
+
+  .liveBadge {
+    display: none;
+  }
+
+  .liveHeader h2 {
+    font-size: 12px;
+  }
+
+  .saveBadge {
+    display: none;
+  }
+
+  .headerActions button {
+    padding: 8px;
+    white-space: nowrap;
+  }
+
+  .stageTabs button {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 11px;
+    font-size: 9px;
+  }
+
+  .stageTabs button > small {
+    display: none;
+  }
+
+  .panelHeading h3,
+  .controlSection h3 {
+    font-size: 15px;
+  }
+
+  .draftProgress {
+    grid-template-columns: repeat(20, 68px);
+    scroll-snap-type: x proximity;
+  }
+
+  .draftProgress > button {
+    scroll-snap-align: start;
+  }
+
+  .heroSuggestions button {
+    min-height: 48px;
+  }
+
+  .panelActions,
+  .finishBar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .panelActions button,
+  .finishBar button {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .clockCard > strong {
+    font-size: 42px;
+  }
+
+  .counterControl > div > button {
+    min-height: 72px;
+  }
+
+  .noteTimeline > article {
+    grid-template-columns: 45px minmax(0, 1fr) auto;
+  }
+
+  .noteTimeline > article > span {
+    justify-self: start;
+  }
+
+  .noteTimeline p {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
+
+  .noteTimeline > article > div:last-child {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .editNoteForm {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .editNoteForm input:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .reviewNotes article {
+    grid-template-columns: 45px 1fr;
+  }
+
+  .reviewNotes p {
+    grid-column: 1 / -1;
+  }
+}
