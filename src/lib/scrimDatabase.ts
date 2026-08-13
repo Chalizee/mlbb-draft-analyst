@@ -17,6 +17,13 @@ export type ObjectiveOwner = 'Us' | 'Opponent' | 'None';
 export type WorkspaceRole = 'owner' | 'editor' | 'viewer';
 export type ScrimCaptureSource = 'Manual' | 'Live' | 'Screenshot';
 export type ScrimDataCompleteness = 'Legacy' | 'Team only' | 'Full tracking';
+export type ScrimLiveEventType =
+  | 'player_death'
+  | 'our_kill'
+  | 'turtle'
+  | 'lord'
+  | 'tower'
+  | 'review_marker';
 export type ScrimLiveNoteCategory =
   | 'Review'
   | 'Draft'
@@ -93,6 +100,19 @@ export interface ScrimLiveClock {
   startedAt: string | null;
 }
 
+export interface ScrimLiveEvent {
+  id: string;
+  type: ScrimLiveEventType;
+  elapsedSeconds: number;
+  createdAt: string;
+  owner?: Exclude<ObjectiveOwner, 'None'>;
+  playerId?: string;
+  playerName?: string;
+  role?: ScrimRole;
+  hero?: string;
+  noteId?: string;
+}
+
 export interface ScrimGame {
   id: string;
   number: number;
@@ -127,6 +147,7 @@ export interface ScrimGame {
   importMeta?: ScrimImportMeta;
   liveClock?: ScrimLiveClock;
   liveNotes?: ScrimLiveNote[];
+  liveEvents?: ScrimLiveEvent[];
   notes: string;
 }
 
@@ -234,6 +255,7 @@ export function createScrimGame(number: number): ScrimGame {
       startedAt: null,
     },
     liveNotes: [],
+    liveEvents: [],
     notes: '',
   };
 }

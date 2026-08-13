@@ -37,6 +37,7 @@ import HeroAutocomplete, {
 } from '@/components/scrims/HeroAutocomplete';
 import GoldCheckpoint from '@/components/scrims/GoldCheckpoint';
 import LiveMatchMode, {
+  LiveEventReview,
   LiveModeButton,
   LiveNotesReview,
 } from '@/components/scrims/LiveMatchMode';
@@ -1310,6 +1311,7 @@ export default function ScrimsPage() {
                     <p>Keputusan, pattern, atau konteks yang angka tidak tangkap.</p>
                   </div>
                 </div>
+                <LiveEventReview events={activeGame.liveEvents} />
                 <LiveNotesReview
                   notes={activeGame.liveNotes}
                   readOnly={Boolean(readOnly)}

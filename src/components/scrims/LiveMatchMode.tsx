@@ -18,6 +18,7 @@ import {
   type ObjectiveOwner,
   type ScrimGame,
   type ScrimLiveClock,
+  type ScrimLiveEvent,
   type ScrimLiveNote,
   type ScrimLiveNoteCategory,
   type ScrimResult,
@@ -30,15 +31,6 @@ type LiveStage = 'draft' | 'game';
 type DraftKind = 'ban' | 'pick';
 type HeroRoleFilter = 'All' | 'Tank' | 'Marksman' | 'Fighter' | 'Assassin' | 'Mage' | 'Support';
 type DraftField = 'ourBans' | 'enemyBans' | 'ourPicks' | 'enemyPicks';
-type CounterField =
-  | 'teamKills'
-  | 'enemyKills'
-  | 'turtlesFor'
-  | 'turtlesAgainst'
-  | 'lordsFor'
-  | 'lordsAgainst'
-  | 'towersFor'
-  | 'towersAgainst';
 type GoldMinute = 5 | 10 | 15;
 
 interface LiveMatchModeProps {
@@ -190,7 +182,7 @@ export default function LiveMatchMode({
           onClick={() => setStage('game')}
         >
           <span>02</span>
-          In Game
+          Live Console
           <small>
             {game.liveClock?.startedAt
               ? 'RUNNING'
@@ -216,17 +208,7 @@ export default function LiveMatchMode({
         />
       )}
 
-      {stage === 'draft' ? (
-        <QuickNotes game={game} onChange={onChange} />
-      ) : (
-        <details className={styles.optionalNotes}>
-          <summary>
-            Optional detailed note
-            <small>{game.liveNotes?.length ?? 0} timeline entries</small>
-          </summary>
-          <QuickNotes game={game} onChange={onChange} />
-        </details>
-      )}
+      {stage === 'draft' && <QuickNotes game={game} onChange={onChange} />}
     </section>
   );
 }
@@ -620,10 +602,15 @@ function LiveGame({
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [markFeedback, setMarkFeedback] = useState('');
+  const [goldOpen, setGoldOpen] = useState(false);
   const feedbackTimerRef = useRef<number | null>(null);
   const clock = normalizedClock(game.liveClock);
   const running = Boolean(clock.startedAt);
   const elapsed = elapsedAt(clock, now);
+  const events = game.liveEvents ?? [];
+  const recentEvents = [...events]
+    .sort((a, b) => b.elapsedSeconds - a.elapsedSeconds || b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 6);
 
   useEffect(() => {
     if (!running) return;
@@ -639,6 +626,54 @@ function LiveGame({
     },
     [],
   );
+
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (
+        event.repeat ||
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'SELECT' ||
+        target?.tagName === 'TEXTAREA'
+      ) {
+        return;
+      }
+
+      const playerIndex = Number(event.key) - 1;
+      if (playerIndex >= 0 && playerIndex < game.players.length) {
+        event.preventDefault();
+        recordPlayerDeath(game.players[playerIndex]);
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (event.code === 'Space') {
+        event.preventDefault();
+        markMoment();
+      } else if (key === 'k') {
+        recordOurKill();
+      } else if (key === 'q') {
+        recordObjective('turtle', 'Us');
+      } else if (key === 'w') {
+        recordObjective('turtle', 'Opponent');
+      } else if (key === 'a') {
+        recordObjective('lord', 'Us');
+      } else if (key === 's') {
+        recordObjective('lord', 'Opponent');
+      } else if (key === 'z') {
+        recordObjective('tower', 'Us');
+      } else if (key === 'x') {
+        recordObjective('tower', 'Opponent');
+      } else if (key === 'p') {
+        toggleClock();
+      } else if (key === 'g') {
+        setGoldOpen((value) => !value);
+      }
+    }
+
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  });
 
   function updateClock(nextElapsed: number, keepRunning = running) {
     onChange({
@@ -658,35 +693,6 @@ function LiveGame({
     }
   }
 
-  function changeCounter(field: CounterField, delta: number) {
-    const nextValue = Math.max(0, game[field] + delta);
-    const nextGame: ScrimGame = { ...game, [field]: nextValue };
-    const turtleField = field === 'turtlesFor' || field === 'turtlesAgainst';
-    const lordField = field === 'lordsFor' || field === 'lordsAgainst';
-
-    if (delta > 0 && turtleField && game.firstTurtle === 'None') {
-      nextGame.firstTurtle = field === 'turtlesFor' ? 'Us' : 'Opponent';
-    }
-    if (delta > 0 && lordField && game.firstLord === 'None') {
-      nextGame.firstLord = field === 'lordsFor' ? 'Us' : 'Opponent';
-    }
-    if (
-      delta < 0 &&
-      turtleField &&
-      nextGame.turtlesFor + nextGame.turtlesAgainst === 0
-    ) {
-      nextGame.firstTurtle = 'None';
-    }
-    if (
-      delta < 0 &&
-      lordField &&
-      nextGame.lordsFor + nextGame.lordsAgainst === 0
-    ) {
-      nextGame.firstLord = 'None';
-    }
-    onChange(nextGame);
-  }
-
   function updateGold(minute: GoldMinute, owner: 'ours' | 'enemy', value: number) {
     const fields = GOLD_FIELDS[minute];
     const ourGold = owner === 'ours' ? value : game[fields.ours] ?? 0;
@@ -699,6 +705,75 @@ function LiveGame({
     });
   }
 
+  function makeLiveEvent(
+    event: Omit<ScrimLiveEvent, 'id' | 'elapsedSeconds' | 'createdAt'>,
+  ): ScrimLiveEvent {
+    return {
+      id: makeId('live-event'),
+      elapsedSeconds: elapsedAt(normalizedClock(game.liveClock), Date.now()),
+      createdAt: new Date().toISOString(),
+      ...event,
+    };
+  }
+
+  function recordPlayerDeath(player: ScrimGame['players'][number]) {
+    const liveEvent = makeLiveEvent({
+      type: 'player_death',
+      owner: 'Opponent',
+      playerId: player.id,
+      playerName: player.playerName,
+      role: player.role,
+      hero: player.hero,
+    });
+    onChange({
+      ...game,
+      enemyKills: game.enemyKills + 1,
+      players: game.players.map((item) =>
+        item.id === player.id ? { ...item, deaths: item.deaths + 1 } : item,
+      ),
+      liveEvents: [...events, liveEvent],
+    });
+    flashFeedback(`${player.playerName || player.role} death · ${formatClock(liveEvent.elapsedSeconds)}`);
+  }
+
+  function recordOurKill() {
+    const liveEvent = makeLiveEvent({ type: 'our_kill', owner: 'Us' });
+    onChange({
+      ...game,
+      teamKills: game.teamKills + 1,
+      liveEvents: [...events, liveEvent],
+    });
+    flashFeedback(`Our kill · ${formatClock(liveEvent.elapsedSeconds)}`);
+  }
+
+  function recordObjective(
+    type: Extract<ScrimLiveEvent['type'], 'turtle' | 'lord' | 'tower'>,
+    owner: Exclude<ObjectiveOwner, 'None'>,
+  ) {
+    const liveEvent = makeLiveEvent({ type, owner });
+    const nextGame: ScrimGame = {
+      ...game,
+      liveEvents: [...events, liveEvent],
+    };
+
+    if (type === 'turtle') {
+      if (owner === 'Us') nextGame.turtlesFor += 1;
+      else nextGame.turtlesAgainst += 1;
+      if (nextGame.firstTurtle === 'None') nextGame.firstTurtle = owner;
+    } else if (type === 'lord') {
+      if (owner === 'Us') nextGame.lordsFor += 1;
+      else nextGame.lordsAgainst += 1;
+      if (nextGame.firstLord === 'None') nextGame.firstLord = owner;
+    } else if (owner === 'Us') {
+      nextGame.towersFor += 1;
+    } else {
+      nextGame.towersAgainst += 1;
+    }
+
+    onChange(nextGame);
+    flashFeedback(`${owner === 'Us' ? 'Our' : 'Enemy'} ${type} · ${formatClock(liveEvent.elapsedSeconds)}`);
+  }
+
   function markMoment() {
     const markedAt = elapsedAt(normalizedClock(game.liveClock), Date.now());
     const marker: ScrimLiveNote = {
@@ -708,39 +783,76 @@ function LiveGame({
       text: '',
       createdAt: new Date().toISOString(),
     };
+    const liveEvent: ScrimLiveEvent = {
+      id: makeId('live-event'),
+      type: 'review_marker',
+      elapsedSeconds: markedAt,
+      noteId: marker.id,
+      createdAt: new Date().toISOString(),
+    };
 
     onChange({
       ...game,
       liveNotes: [...(game.liveNotes ?? []), marker],
+      liveEvents: [...events, liveEvent],
     });
-    setMarkFeedback(`Saved at ${formatClock(markedAt)}`);
+    flashFeedback(`Moment saved · ${formatClock(markedAt)}`);
+  }
+
+  function flashFeedback(message: string) {
+    setMarkFeedback(message);
     if (feedbackTimerRef.current !== null) {
       window.clearTimeout(feedbackTimerRef.current);
     }
     feedbackTimerRef.current = window.setTimeout(() => setMarkFeedback(''), 1_800);
   }
 
-  function undoLastMarker() {
-    const notes = game.liveNotes ?? [];
-    let markerIndex = -1;
-    for (let index = notes.length - 1; index >= 0; index -= 1) {
-      if (notes[index].category === 'Review') {
-        markerIndex = index;
-        break;
-      }
+  function undoLastEvent() {
+    const lastEvent = events[events.length - 1];
+    if (!lastEvent) return;
+    const remainingEvents = events.slice(0, -1);
+    const nextGame: ScrimGame = { ...game, liveEvents: remainingEvents };
+
+    if (lastEvent.type === 'player_death') {
+      nextGame.enemyKills = Math.max(0, game.enemyKills - 1);
+      nextGame.players = game.players.map((player) =>
+        player.id === lastEvent.playerId
+          ? { ...player, deaths: Math.max(0, player.deaths - 1) }
+          : player,
+      );
+    } else if (lastEvent.type === 'our_kill') {
+      nextGame.teamKills = Math.max(0, game.teamKills - 1);
+    } else if (lastEvent.type === 'turtle') {
+      if (lastEvent.owner === 'Us') nextGame.turtlesFor = Math.max(0, game.turtlesFor - 1);
+      else nextGame.turtlesAgainst = Math.max(0, game.turtlesAgainst - 1);
+      nextGame.firstTurtle = firstEventOwner(remainingEvents, 'turtle');
+    } else if (lastEvent.type === 'lord') {
+      if (lastEvent.owner === 'Us') nextGame.lordsFor = Math.max(0, game.lordsFor - 1);
+      else nextGame.lordsAgainst = Math.max(0, game.lordsAgainst - 1);
+      nextGame.firstLord = firstEventOwner(remainingEvents, 'lord');
+    } else if (lastEvent.type === 'tower') {
+      if (lastEvent.owner === 'Us') nextGame.towersFor = Math.max(0, game.towersFor - 1);
+      else nextGame.towersAgainst = Math.max(0, game.towersAgainst - 1);
+    } else if (lastEvent.type === 'review_marker' && lastEvent.noteId) {
+      nextGame.liveNotes = (game.liveNotes ?? []).filter(
+        (note) => note.id !== lastEvent.noteId,
+      );
     }
-    if (markerIndex < 0) return;
-    onChange({
-      ...game,
-      liveNotes: notes.filter((_, index) => index !== markerIndex),
-    });
-    setMarkFeedback('Last marker removed');
+
+    onChange(nextGame);
+    flashFeedback('Last event removed');
   }
 
-  const reviewMarkers = (game.liveNotes ?? []).filter(
-    (note) => note.category === 'Review',
-  );
-  const lastReviewMarker = reviewMarkers[reviewMarkers.length - 1];
+  function assignHero(playerId: string, hero: string) {
+    onChange({
+      ...game,
+      players: game.players.map((player) => {
+        if (player.id === playerId) return { ...player, hero };
+        if (hero && player.hero === hero) return { ...player, hero: '' };
+        return player;
+      }),
+    });
+  }
 
   function finishLiveGame() {
     const finalElapsed = elapsedAt(normalizedClock(game.liveClock), Date.now());
@@ -757,166 +869,187 @@ function LiveGame({
     });
   }
 
-  return (
-    <section className={styles.livePanel}>
-      <div className={styles.gameTopGrid}>
-        <article className={styles.clockCard}>
-          <span>GAME CLOCK</span>
-          <strong>{formatClock(elapsed)}</strong>
-          <div>
-            <button type="button" onClick={() => updateClock(elapsed - 10)}>-10s</button>
-            <button className={styles.clockToggle} type="button" onClick={toggleClock}>
-              {running ? 'Pause' : elapsed > 0 ? 'Resume' : 'Start game'}
-            </button>
-            <button type="button" onClick={() => updateClock(elapsed + 10)}>+10s</button>
-          </div>
-          <small>Timestamp notes follows this clock.</small>
-        </article>
+  const checkpointDue = nextGoldCheckpoint(game, elapsed);
 
-        <article className={styles.momentCard} data-saved={Boolean(markFeedback)}>
-          <span>ONE-TAP REVIEW MARKER</span>
-          <strong>See something important?</strong>
-          <button type="button" onClick={markMoment}>
-            <i /> MARK MOMENT
-            <small>{formatClock(elapsed)}</small>
+  return (
+    <section className={`${styles.livePanel} ${styles.streamDeckConsole}`}>
+      <header className={styles.consoleTopbar}>
+        <div className={styles.consoleClock}>
+          <button type="button" onClick={() => updateClock(elapsed - 10)}>-10</button>
+          <div>
+            <span>GAME CLOCK</span>
+            <strong>{formatClock(elapsed)}</strong>
+          </div>
+          <button type="button" onClick={() => updateClock(elapsed + 10)}>+10</button>
+          <button className={styles.consoleClockToggle} type="button" onClick={toggleClock}>
+            {running ? 'PAUSE' : elapsed > 0 ? 'RESUME' : 'START'} <kbd>P</kbd>
           </button>
-          <footer>
-            <span>
-              {markFeedback ||
-                (lastReviewMarker
-                  ? `Last marker ${formatClock(lastReviewMarker.elapsedSeconds)}`
-                  : 'No marker yet')}
-            </span>
+        </div>
+
+        <button className={styles.consoleMarker} type="button" onClick={markMoment}>
+          <i />
+          <span>MARK MOMENT</span>
+          <small>Space · {formatClock(elapsed)}</small>
+        </button>
+
+        <div className={styles.consoleMatchState}>
+          <div className={styles.consoleScore}>
+            <span>US</span><strong>{game.teamKills}</strong>
+            <i>—</i>
+            <strong>{game.enemyKills}</strong><span>THEM</span>
+          </div>
+          <div className={styles.consoleStateActions}>
             <button
               type="button"
-              disabled={!lastReviewMarker}
-              onClick={undoLastMarker}
+              data-due={Boolean(checkpointDue)}
+              onClick={() => setGoldOpen(true)}
             >
-              Undo
+              {checkpointDue ? `GOLD @${checkpointDue} DUE` : 'GOLD'} <kbd>G</kbd>
             </button>
-          </footer>
-        </article>
-
-        <article className={styles.resultCard}>
-          <span>GAME STATE</span>
-          <div className={styles.resultSwitch}>
-            {(['Win', 'Loss'] as ScrimResult[]).map((result) => (
-              <button
-                className={game.result === result ? styles.selectedResult : ''}
-                data-result={result.toLowerCase()}
-                type="button"
-                key={result}
-                onClick={() => onChange({ ...game, result })}
-              >
-                {result}
-              </button>
-            ))}
+            <button type="button" onClick={finishLiveGame}>FINISH</button>
           </div>
-          <CounterControl
-            label="Kills"
-            ours={game.teamKills}
-            enemy={game.enemyKills}
-            onOurs={(delta) => changeCounter('teamKills', delta)}
-            onEnemy={(delta) => changeCounter('enemyKills', delta)}
-          />
-        </article>
+        </div>
+      </header>
+
+      <div className={styles.consoleMain}>
+        <section className={styles.playerDeathDeck}>
+          <header>
+            <div><span>PLAYER DEATH KEYS</span><strong>Tap only when our player dies</strong></div>
+            <small>Enemy kill increases automatically</small>
+          </header>
+          <div>
+            {game.players.map((player, index) => {
+              const deathEvents = events.filter(
+                (event) => event.type === 'player_death' && event.playerId === player.id,
+              ).length;
+              return (
+                <article className={styles.playerDeathKey} key={player.id}>
+                  <button type="button" onClick={() => recordPlayerDeath(player)}>
+                    <kbd>{index + 1}</kbd>
+                    <HeroAvatar
+                      className={styles.consolePlayerAvatar}
+                      name={player.hero || player.playerName || player.role}
+                      imageUrl={heroVisual(player.hero)?.imageUrl}
+                      size="lg"
+                    />
+                    <strong>{player.playerName || player.role}</strong>
+                    <span>{player.hero || 'Assign hero below'}</span>
+                    <b>{deathEvents} LIVE DEATH{deathEvents === 1 ? '' : 'S'}</b>
+                  </button>
+                  <select
+                    aria-label={`Assign hero for ${player.playerName || player.role}`}
+                    value={player.hero}
+                    onChange={(event) => assignHero(player.id, event.target.value)}
+                  >
+                    <option value="">{player.role} hero…</option>
+                    {uniqueHeroes([...game.ourPicks, player.hero]).map((hero) => (
+                      <option value={hero} key={hero}>{hero}</option>
+                    ))}
+                  </select>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className={styles.eventControlDeck}>
+          <header>
+            <div><span>ONE-TAP EVENTS</span><strong>Every tap saves the timestamp</strong></div>
+            <small>{markFeedback || `${events.length} saved events`}</small>
+          </header>
+          <div>
+            <button className={styles.killKey} type="button" onClick={recordOurKill}>
+              <kbd>K</kbd><span>OUR KILL</span><strong>+1</strong>
+            </button>
+            <EventKey shortcut="Q" label="OUR TURTLE" value={game.turtlesFor} owner="ours" onClick={() => recordObjective('turtle', 'Us')} />
+            <EventKey shortcut="W" label="ENEMY TURTLE" value={game.turtlesAgainst} owner="enemy" onClick={() => recordObjective('turtle', 'Opponent')} />
+            <EventKey shortcut="A" label="OUR LORD" value={game.lordsFor} owner="ours" onClick={() => recordObjective('lord', 'Us')} />
+            <EventKey shortcut="S" label="ENEMY LORD" value={game.lordsAgainst} owner="enemy" onClick={() => recordObjective('lord', 'Opponent')} />
+            <EventKey shortcut="Z" label="OUR TOWER" value={game.towersFor} owner="ours" onClick={() => recordObjective('tower', 'Us')} />
+            <EventKey shortcut="X" label="ENEMY TOWER" value={game.towersAgainst} owner="enemy" onClick={() => recordObjective('tower', 'Opponent')} />
+            <div className={styles.consoleResultSwitch}>
+              {(['Win', 'Loss'] as ScrimResult[]).map((result) => (
+                <button
+                  className={game.result === result ? styles.selectedResult : ''}
+                  data-result={result.toLowerCase()}
+                  type="button"
+                  key={result}
+                  onClick={() => onChange({ ...game, result })}
+                >
+                  {result}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
       </div>
 
-      <section className={styles.controlSection}>
-        <header>
-          <div>
-            <span>ONE-TAP OBJECTIVES</span>
-            <h3>Tap the team that secured it</h3>
-          </div>
-          <small>FIRST TURTLE / LORD SET AUTOMATICALLY</small>
-        </header>
-        <div className={styles.objectiveControls}>
-          <CounterControl
-            label="Turtles"
-            ours={game.turtlesFor}
-            enemy={game.turtlesAgainst}
-            first={game.firstTurtle}
-            onOurs={(delta) => changeCounter('turtlesFor', delta)}
-            onEnemy={(delta) => changeCounter('turtlesAgainst', delta)}
-          />
-          <CounterControl
-            label="Lords"
-            ours={game.lordsFor}
-            enemy={game.lordsAgainst}
-            first={game.firstLord}
-            onOurs={(delta) => changeCounter('lordsFor', delta)}
-            onEnemy={(delta) => changeCounter('lordsAgainst', delta)}
-          />
-          <CounterControl
-            label="Towers"
-            ours={game.towersFor}
-            enemy={game.towersAgainst}
-            onOurs={(delta) => changeCounter('towersFor', delta)}
-            onEnemy={(delta) => changeCounter('towersAgainst', delta)}
-          />
+      <footer className={styles.recentEventStrip}>
+        <div className={styles.recentEventHeading}>
+          <span>RECENT EVENTS</span>
+          <button type="button" disabled={events.length === 0} onClick={undoLastEvent}>
+            UNDO LAST
+          </button>
         </div>
-      </section>
-
-      <section className={styles.controlSection}>
-        <header>
-          <div>
-            <span>GOLD CHECKPOINTS</span>
-            <h3>Enter both total gold values</h3>
-          </div>
-          <small>DIFFERENCE CALCULATED AUTOMATICALLY</small>
-        </header>
-        <div className={styles.liveGoldGrid}>
-          {([5, 10, 15] as const).map((minute) => {
-            const fields = GOLD_FIELDS[minute];
-            const difference = game[fields.difference] ?? 0;
-            return (
-              <article key={minute}>
-                <header>
-                  <strong>@ {minute} MIN</strong>
-                  <span data-tone={difference > 0 ? 'lead' : difference < 0 ? 'behind' : 'even'}>
-                    {difference === 0 ? 'EVEN' : `${difference > 0 ? '+' : ''}${difference}`}
-                  </span>
-                </header>
-                <label>
-                  <span>OUR GOLD</span>
-                  <input
-                    type="number"
-                    min="0"
-                    inputMode="numeric"
-                    value={game[fields.ours] || ''}
-                    placeholder="e.g. 15200"
-                    onChange={(event) =>
-                      updateGold(minute, 'ours', Number(event.target.value) || 0)
-                    }
-                  />
-                </label>
-                <label>
-                  <span>ENEMY GOLD</span>
-                  <input
-                    type="number"
-                    min="0"
-                    inputMode="numeric"
-                    value={game[fields.enemy] || ''}
-                    placeholder="e.g. 14800"
-                    onChange={(event) =>
-                      updateGold(minute, 'enemy', Number(event.target.value) || 0)
-                    }
-                  />
-                </label>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <footer className={styles.finishBar}>
         <div>
-          <span>FINISH LIVE CAPTURE</span>
-          <small>Timer stops and duration is copied to the full editor.</small>
+          {recentEvents.length === 0 ? (
+            <p>Start the timer, then use the big keys. No typing required.</p>
+          ) : (
+            recentEvents.map((liveEvent) => (
+              <article data-owner={liveEvent.owner?.toLowerCase() ?? 'neutral'} key={liveEvent.id}>
+                <time>{formatClock(liveEvent.elapsedSeconds)}</time>
+                <strong>{liveEventLabel(liveEvent)}</strong>
+                <small>{liveEventContext(liveEvent, events)}</small>
+              </article>
+            ))
+          )}
         </div>
-        <button type="button" onClick={finishLiveGame}>Finish & review game →</button>
       </footer>
+
+      {goldOpen && (
+        <div className={styles.goldOverlay} role="dialog" aria-modal="true" aria-label="Gold checkpoints">
+          <section>
+            <header>
+              <div><span>GOLD CHECKPOINTS</span><strong>Enter both totals</strong></div>
+              <button type="button" onClick={() => setGoldOpen(false)}>CLOSE</button>
+            </header>
+            <div className={styles.consoleGoldGrid}>
+              {([5, 10, 15] as const).map((minute) => {
+                const fields = GOLD_FIELDS[minute];
+                const difference = game[fields.difference] ?? 0;
+                return (
+                  <article key={minute}>
+                    <header><strong>@ {minute}</strong><span>{formatSignedNumber(difference)}</span></header>
+                    <label><span>OUR GOLD</span><input type="number" min="0" inputMode="numeric" value={game[fields.ours] || ''} onChange={(event) => updateGold(minute, 'ours', Number(event.target.value) || 0)} /></label>
+                    <label><span>ENEMY GOLD</span><input type="number" min="0" inputMode="numeric" value={game[fields.enemy] || ''} onChange={(event) => updateGold(minute, 'enemy', Number(event.target.value) || 0)} /></label>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      )}
     </section>
+  );
+}
+
+function EventKey({
+  shortcut,
+  label,
+  value,
+  owner,
+  onClick,
+}: {
+  shortcut: string;
+  label: string;
+  value: number;
+  owner: 'ours' | 'enemy';
+  onClick: () => void;
+}) {
+  return (
+    <button className={styles.eventKey} data-owner={owner} type="button" onClick={onClick}>
+      <kbd>{shortcut}</kbd><span>{label}</span><strong>{value}</strong>
+    </button>
   );
 }
 
@@ -1155,42 +1288,32 @@ export function LiveNotesReview({
   );
 }
 
-function CounterControl({
-  label,
-  ours,
-  enemy,
-  first,
-  onOurs,
-  onEnemy,
-}: {
-  label: string;
-  ours: number;
-  enemy: number;
-  first?: ObjectiveOwner;
-  onOurs: (delta: number) => void;
-  onEnemy: (delta: number) => void;
-}) {
+export function LiveEventReview({ events }: { events?: ScrimLiveEvent[] }) {
+  const ordered = [...(events ?? [])].sort(
+    (a, b) => a.elapsedSeconds - b.elapsedSeconds || a.createdAt.localeCompare(b.createdAt),
+  );
+  if (ordered.length === 0) return null;
+
   return (
-    <article className={styles.counterControl}>
+    <section className={styles.reviewNotes}>
       <header>
-        <strong>{label}</strong>
-        {first && first !== 'None' && <small>1st · {first}</small>}
+        <span>RECORDED GAME EVENTS</span>
+        <small>{ordered.length} one-tap timestamps</small>
       </header>
       <div>
-        <button type="button" data-team="ours" onClick={() => onOurs(1)}>
-          <span>OUR +1</span>
-          <strong>{ours}</strong>
-        </button>
-        <button type="button" data-team="enemy" onClick={() => onEnemy(1)}>
-          <span>ENEMY +1</span>
-          <strong>{enemy}</strong>
-        </button>
+        {ordered.map((event) => (
+          <article key={event.id}>
+            <time>{formatClock(event.elapsedSeconds)}</time>
+            <span>{event.owner === 'Us' ? 'OUR EVENT' : event.owner === 'Opponent' ? 'ENEMY EVENT' : 'MARKER'}</span>
+            <p>
+              <strong>{liveEventLabel(event)}</strong>
+              {' · '}
+              {liveEventContext(event, ordered)}
+            </p>
+          </article>
+        ))}
       </div>
-      <footer>
-        <button type="button" disabled={ours === 0} onClick={() => onOurs(-1)}>Undo ours</button>
-        <button type="button" disabled={enemy === 0} onClick={() => onEnemy(-1)}>Undo enemy</button>
-      </footer>
-    </article>
+    </section>
   );
 }
 
@@ -1240,6 +1363,79 @@ function currentElapsed(clock?: ScrimLiveClock) {
   return elapsedAt(normalizedClock(clock), Date.now());
 }
 
+function firstEventOwner(
+  events: ScrimLiveEvent[],
+  type: 'turtle' | 'lord',
+): ObjectiveOwner {
+  return [...events]
+    .filter((event) => event.type === type && event.owner)
+    .sort((a, b) => a.elapsedSeconds - b.elapsedSeconds)[0]?.owner ?? 'None';
+}
+
+function liveEventLabel(event: ScrimLiveEvent) {
+  if (event.type === 'player_death') {
+    return `${event.playerName || event.role || 'Player'} died`;
+  }
+  if (event.type === 'our_kill') return 'Our kill';
+  if (event.type === 'review_marker') return 'Review marker';
+  return `${event.owner === 'Us' ? 'Our' : 'Enemy'} ${event.type}`;
+}
+
+function liveEventContext(event: ScrimLiveEvent, events: ScrimLiveEvent[]) {
+  if (event.type === 'player_death') {
+    const punishment = events.find(
+      (candidate) =>
+        (candidate.type === 'turtle' ||
+          candidate.type === 'lord' ||
+          candidate.type === 'tower') &&
+        candidate.owner === 'Opponent' &&
+        candidate.elapsedSeconds >= event.elapsedSeconds &&
+        candidate.elapsedSeconds - event.elapsedSeconds <= 60,
+    );
+    if (punishment) return `PRE-${punishment.type.toUpperCase()} DEATH`;
+    const traded = events.some(
+      (candidate) =>
+        candidate.type === 'our_kill' &&
+        candidate.elapsedSeconds >= event.elapsedSeconds &&
+        candidate.elapsedSeconds - event.elapsedSeconds <= 15,
+    );
+    return traded ? 'TRADED ≤15S' : event.hero || event.role || 'PLAYER DEATH';
+  }
+  if (event.type === 'our_kill') {
+    const conversion = events.find(
+      (candidate) =>
+        (candidate.type === 'turtle' ||
+          candidate.type === 'lord' ||
+          candidate.type === 'tower') &&
+        candidate.owner === 'Us' &&
+        candidate.elapsedSeconds >= event.elapsedSeconds &&
+        candidate.elapsedSeconds - event.elapsedSeconds <= 45,
+    );
+    return conversion ? `CONVERTED TO ${conversion.type.toUpperCase()}` : 'KILL EVENT';
+  }
+  if (event.type === 'review_marker') return 'ADD CONTEXT AFTER GAME';
+  return event.owner === 'Us' ? 'SECURED' : 'CONCEDED';
+}
+
+function nextGoldCheckpoint(game: ScrimGame, elapsedSeconds: number) {
+  const checkpoints = [
+    { minute: 5 as const, ours: game.ourGold5, enemy: game.enemyGold5 },
+    { minute: 10 as const, ours: game.ourGold10, enemy: game.enemyGold10 },
+    { minute: 15 as const, ours: game.ourGold15, enemy: game.enemyGold15 },
+  ];
+  return checkpoints.find(
+    (checkpoint) =>
+      elapsedSeconds >= checkpoint.minute * 60 &&
+      checkpoint.ours === 0 &&
+      checkpoint.enemy === 0,
+  )?.minute;
+}
+
+function formatSignedNumber(value: number) {
+  if (value === 0) return 'EVEN';
+  return `${value > 0 ? '+' : ''}${value.toLocaleString()}`;
+}
+
 function draftField(step: DraftStep, ourSide: ScrimSide): DraftField {
   const ours = step.side === ourSide;
   if (step.kind === 'pick') return ours ? 'ourPicks' : 'enemyPicks';
@@ -1286,6 +1482,15 @@ function heroSearchText(hero: (typeof HERO_DATA)[number]) {
     .map((word) => word[0] ?? '')
     .join('');
   return normalize(`${hero.name} ${hero.slug} ${aliases} ${initials}`);
+}
+
+function uniqueHeroes(values: string[]) {
+  const heroes = new Map<string, string>();
+  values.forEach((value) => {
+    const clean = value.trim();
+    if (clean) heroes.set(normalize(clean), clean);
+  });
+  return [...heroes.values()];
 }
 
 function sortedNotes(notes: ScrimLiveNote[]) {

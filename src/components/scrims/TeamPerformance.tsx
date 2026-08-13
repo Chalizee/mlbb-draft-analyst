@@ -125,6 +125,17 @@ interface TeamSnapshot {
   draft: DraftSummary;
 }
 
+interface LiveTimelineSummary {
+  trackedGames: number;
+  events: number;
+  playerDeaths: number;
+  preObjectiveDeaths: number;
+  chainDeaths: number;
+  ourKills: number;
+  killConversions: number;
+  reviewMarkers: number;
+}
+
 interface RadarMetric {
   key: string;
   label: string;
@@ -268,6 +279,7 @@ export default function TeamPerformance({ sessions }: TeamPerformanceProps) {
           <SideComparison snapshot={snapshot} />
           <EconomyPanel snapshot={snapshot} />
           <ObjectivePanel snapshot={snapshot} />
+          <TempoDisciplinePanel snapshot={snapshot} />
           <DraftPanel snapshot={snapshot} />
           <PatchLedger rows={patchLedger} />
           <RecentGameLedger records={snapshot.records} />
@@ -802,6 +814,58 @@ function FirstObjectiveCard({
   );
 }
 
+function TempoDisciplinePanel({ snapshot }: { snapshot: TeamSnapshot }) {
+  const timeline = buildLiveTimelineSummary(snapshot.records);
+
+  return (
+    <section className={styles.sectionCard}>
+      <SectionTitle
+        eyebrow="LIVE TIMELINE"
+        title="Tempo, discipline, and objective conversion from one-tap events"
+        meta={`${timeline.trackedGames}/${snapshot.games} LIVE GAMES`}
+      />
+      {timeline.trackedGames === 0 ? (
+        <div className={styles.inlineEmpty}>
+          New Live Console games will appear here. Legacy games stay saved and are
+          excluded from timestamp rates.
+        </div>
+      ) : (
+        <>
+          <div className={styles.conversionGrid}>
+            <ConversionMetric
+              label="Timestamped events"
+              value={String(timeline.events)}
+              detail={`${timeline.reviewMarkers} review markers · ${timeline.trackedGames} games`}
+            />
+            <ConversionMetric
+              label="Pre-objective deaths"
+              value={String(timeline.preObjectiveDeaths)}
+              detail={`${Math.round(safeRate(timeline.preObjectiveDeaths, timeline.playerDeaths) * 100)}% of ${timeline.playerDeaths} recorded deaths`}
+            />
+            <ConversionMetric
+              label="Follow-up deaths ≤25s"
+              value={String(timeline.chainDeaths)}
+              detail="second team death inside the same fight window"
+            />
+            <ConversionMetric
+              label="Kill → objective ≤45s"
+              value={timeline.ourKills > 0
+                ? `${Math.round(safeRate(timeline.killConversions, timeline.ourKills) * 100)}%`
+                : '—'}
+              detail={`${timeline.killConversions}/${timeline.ourKills} timestamped kills converted`}
+            />
+          </div>
+          <p className={styles.timelineDefinitions}>
+            Pre-objective = our death within 60 seconds before an enemy Turtle,
+            Lord, or Tower. These are raw recorded relationships, not an automatic
+            coaching verdict.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
 function DraftPanel({ snapshot }: { snapshot: TeamSnapshot }) {
   const draft = snapshot.draft;
 
@@ -1226,6 +1290,72 @@ function SectionTitle({
 function buildTeamSnapshot(sessions: ScrimSession[]): TeamSnapshot {
   const records = buildGameRecords(sessions);
   return buildTeamSnapshotFromRecords(records);
+}
+
+function buildLiveTimelineSummary(records: TeamGameRecord[]): LiveTimelineSummary {
+  const summary: LiveTimelineSummary = {
+    trackedGames: 0,
+    events: 0,
+    playerDeaths: 0,
+    preObjectiveDeaths: 0,
+    chainDeaths: 0,
+    ourKills: 0,
+    killConversions: 0,
+    reviewMarkers: 0,
+  };
+
+  records.forEach((record) => {
+    const events = [...(record.game.liveEvents ?? [])].sort(
+      (a, b) => a.elapsedSeconds - b.elapsedSeconds || a.createdAt.localeCompare(b.createdAt),
+    );
+    if (events.length === 0) return;
+
+    summary.trackedGames += 1;
+    summary.events += events.length;
+    let previousDeathAt: number | null = null;
+
+    events.forEach((event) => {
+      if (event.type === 'review_marker') summary.reviewMarkers += 1;
+
+      if (event.type === 'player_death') {
+        summary.playerDeaths += 1;
+        if (
+          previousDeathAt !== null &&
+          event.elapsedSeconds - previousDeathAt <= 25
+        ) {
+          summary.chainDeaths += 1;
+        }
+        previousDeathAt = event.elapsedSeconds;
+
+        const concededObjective = events.some(
+          (candidate) =>
+            (candidate.type === 'turtle' ||
+              candidate.type === 'lord' ||
+              candidate.type === 'tower') &&
+            candidate.owner === 'Opponent' &&
+            candidate.elapsedSeconds >= event.elapsedSeconds &&
+            candidate.elapsedSeconds - event.elapsedSeconds <= 60,
+        );
+        if (concededObjective) summary.preObjectiveDeaths += 1;
+      }
+
+      if (event.type === 'our_kill') {
+        summary.ourKills += 1;
+        const converted = events.some(
+          (candidate) =>
+            (candidate.type === 'turtle' ||
+              candidate.type === 'lord' ||
+              candidate.type === 'tower') &&
+            candidate.owner === 'Us' &&
+            candidate.elapsedSeconds >= event.elapsedSeconds &&
+            candidate.elapsedSeconds - event.elapsedSeconds <= 45,
+        );
+        if (converted) summary.killConversions += 1;
+      }
+    });
+  });
+
+  return summary;
 }
 
 function buildTeamSnapshotFromRecords(
