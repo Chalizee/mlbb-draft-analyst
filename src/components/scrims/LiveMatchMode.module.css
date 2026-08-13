@@ -3257,3 +3257,589 @@
     grid-column: 1 / -1;
   }
 }
+
+/*
+ * The in-game console becomes a dedicated touch surface on phones. Keeping it
+ * fixed to the dynamic viewport removes the site header/page padding from the
+ * interaction area and makes the controls behave like a compact Stream Deck.
+ */
+@media (max-width: 760px) {
+  .liveShell[data-stage='game'] {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    box-sizing: border-box;
+    grid-template-rows: 38px 32px minmax(0, 1fr);
+    gap: 5px;
+    width: 100vw;
+    height: 100dvh;
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+    padding:
+      max(5px, env(safe-area-inset-top))
+      max(5px, env(safe-area-inset-right))
+      max(5px, env(safe-area-inset-bottom))
+      max(5px, env(safe-area-inset-left));
+    overscroll-behavior: none;
+  }
+
+  .liveShell[data-stage='game'] .liveHeader {
+    position: static;
+    min-height: 0;
+    align-items: center;
+    border-radius: 8px;
+    padding: 4px 7px;
+  }
+
+  .liveShell[data-stage='game'] .liveHeader > div:first-child {
+    align-items: center;
+  }
+
+  .liveShell[data-stage='game'] .liveHeader h2 {
+    font-size: 10px;
+  }
+
+  .liveShell[data-stage='game'] .headerActions {
+    align-items: center;
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .liveShell[data-stage='game'] .saveBadge {
+    display: inline;
+    font-size: 5px;
+  }
+
+  .liveShell[data-stage='game'] .headerActions button {
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-size: 6px;
+  }
+
+  .liveShell[data-stage='game'] .stageTabs {
+    min-height: 0;
+    border-radius: 8px;
+  }
+
+  .liveShell[data-stage='game'] .stageTabs button {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 5px;
+    min-height: 0;
+    padding: 4px 8px;
+    font-size: 7px;
+  }
+
+  .liveShell[data-stage='game'] .stageTabs button > small {
+    display: block;
+    font-size: 5px;
+  }
+
+  .liveShell[data-stage='game'] .streamDeckConsole {
+    align-self: stretch;
+    grid-template-rows:
+      minmax(96px, 0.72fr)
+      minmax(134px, 0.92fr)
+      minmax(184px, 1.36fr)
+      38px;
+    gap: 5px;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 9px;
+    padding: 5px;
+  }
+
+  .liveShell[data-stage='game'] .consoleTopbar {
+    gap: 4px;
+  }
+
+  .liveShell[data-stage='game'] .consoleClock,
+  .liveShell[data-stage='game'] .consoleMatchState,
+  .liveShell[data-stage='game'] .consoleMarker {
+    border-radius: 8px;
+  }
+
+  .liveShell[data-stage='game'] .consoleClock {
+    grid-template-columns: 28px minmax(78px, 1fr) 28px;
+    gap: 3px;
+    padding: 4px;
+  }
+
+  .liveShell[data-stage='game'] .consoleClock > button {
+    padding: 5px 2px;
+  }
+
+  .liveShell[data-stage='game'] .consoleClock > div strong {
+    font-size: clamp(23px, 7.5vw, 29px);
+  }
+
+  .liveShell[data-stage='game'] .consoleClock .consoleClockToggle {
+    min-height: 23px;
+    padding: 3px;
+  }
+
+  .liveShell[data-stage='game'] .consoleMarker {
+    min-height: 42px;
+    padding: 5px 8px;
+  }
+
+  .liveShell[data-stage='game'] .consoleMarker > i {
+    width: 12px;
+    height: 12px;
+    border-width: 2px;
+  }
+
+  .liveShell[data-stage='game'] .consoleMarker > span {
+    font-size: 8px;
+  }
+
+  .liveShell[data-stage='game'] .consoleMarker > small {
+    font-size: 5px;
+  }
+
+  .liveShell[data-stage='game'] .consoleMatchState {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .liveShell[data-stage='game'] .consoleScore strong {
+    font-size: 21px;
+  }
+
+  .liveShell[data-stage='game'] .consoleStateActions {
+    gap: 3px;
+  }
+
+  .liveShell[data-stage='game'] .consoleStateActions button {
+    min-width: 62px;
+    padding: 5px 4px;
+    font-size: 5px;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathDeck,
+  .liveShell[data-stage='game'] .eventControlDeck {
+    border-radius: 8px;
+    padding: 5px;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathDeck > header,
+  .liveShell[data-stage='game'] .eventControlDeck > header {
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathDeck > header span,
+  .liveShell[data-stage='game'] .eventControlDeck > header span,
+  .liveShell[data-stage='game'] .playerDeathDeck > header small {
+    display: none;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathDeck > header strong,
+  .liveShell[data-stage='game'] .eventControlDeck > header strong {
+    font-size: 6px;
+  }
+
+  .liveShell[data-stage='game'] .editLineupButton {
+    padding: 4px 5px;
+    font-size: 4.5px;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathKey > button {
+    gap: 2px;
+    border-radius: 8px;
+    padding: 4px 2px;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathKey > button > kbd {
+    top: 3px;
+    left: 3px;
+  }
+
+  .liveShell[data-stage='game'] .consolePlayerAvatar {
+    width: clamp(42px, 13vw, 56px) !important;
+    height: clamp(42px, 13vw, 56px) !important;
+    flex-basis: clamp(42px, 13vw, 56px) !important;
+    border-radius: 13px !important;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathKey > button > strong {
+    font-size: clamp(6px, 1.9vw, 8px);
+  }
+
+  .liveShell[data-stage='game'] .playerDeathKey > button > span {
+    display: none;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathKey > button > b {
+    font-size: 4.5px;
+  }
+
+  .liveShell[data-stage='game'] .eventControlDeck > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .liveShell[data-stage='game'] .killKey {
+    grid-column: 1 / span 2;
+    grid-row: 1;
+  }
+
+  .liveShell[data-stage='game'] .consoleResultSwitch {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .liveShell[data-stage='game'] .eventKey,
+  .liveShell[data-stage='game'] .killKey {
+    gap: 3px;
+    border-radius: 7px;
+    padding: 4px;
+  }
+
+  .liveShell[data-stage='game'] .eventKey > span,
+  .liveShell[data-stage='game'] .killKey > span {
+    font-size: clamp(5px, 1.7vw, 7px);
+  }
+
+  .liveShell[data-stage='game'] .eventKey > strong,
+  .liveShell[data-stage='game'] .killKey > strong {
+    font-size: clamp(14px, 4.5vw, 19px);
+  }
+
+  .liveShell[data-stage='game'] .consoleResultSwitch button {
+    padding: 2px;
+    font-size: 5px;
+  }
+
+  .liveShell[data-stage='game'] .recentEventStrip {
+    grid-template-columns: 60px minmax(0, 1fr);
+    gap: 3px;
+    min-height: 0;
+    border-radius: 8px;
+    padding: 3px;
+  }
+
+  .liveShell[data-stage='game'] .recentEventHeading {
+    gap: 2px;
+    padding-right: 3px;
+  }
+
+  .liveShell[data-stage='game'] .recentEventHeading > span {
+    font-size: 4.5px;
+  }
+
+  .liveShell[data-stage='game'] .recentEventHeading button {
+    padding: 3px;
+    font-size: 4.5px;
+  }
+
+  .liveShell[data-stage='game'] .recentEventStrip > div:last-child {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .liveShell[data-stage='game'] .recentEventStrip article:nth-of-type(n + 3) {
+    display: none;
+  }
+
+  .liveShell[data-stage='game'] .recentEventStrip article,
+  .liveShell[data-stage='game'] .recentEventStrip p {
+    min-height: 0;
+    padding: 3px 5px;
+  }
+
+  .liveShell[data-stage='game'] .recentEventStrip article small {
+    display: none;
+  }
+}
+
+/* iPhone landscape: preserve the same controls in a true single-screen deck. */
+@media (orientation: landscape) and (max-height: 600px) and (hover: none) {
+  .liveShell[data-stage='game'] {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    box-sizing: border-box;
+    grid-template-rows: 32px 27px minmax(0, 1fr);
+    gap: 4px;
+    width: 100vw;
+    height: 100dvh;
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+    padding:
+      max(3px, env(safe-area-inset-top))
+      max(5px, env(safe-area-inset-right))
+      max(3px, env(safe-area-inset-bottom))
+      max(5px, env(safe-area-inset-left));
+    overscroll-behavior: none;
+  }
+
+  .liveShell[data-stage='game'] .liveHeader {
+    position: static;
+    min-height: 0;
+    align-items: center;
+    border-radius: 7px;
+    padding: 3px 7px;
+  }
+
+  .liveShell[data-stage='game'] .liveBadge,
+  .liveShell[data-stage='game'] .liveHeader p {
+    display: none;
+  }
+
+  .liveShell[data-stage='game'] .liveHeader h2 {
+    font-size: 9px;
+  }
+
+  .liveShell[data-stage='game'] .headerActions {
+    align-items: center;
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .liveShell[data-stage='game'] .saveBadge {
+    display: inline;
+    font-size: 5px;
+  }
+
+  .liveShell[data-stage='game'] .headerActions button {
+    padding: 4px 7px;
+    font-size: 5px;
+  }
+
+  .liveShell[data-stage='game'] .stageTabs {
+    border-radius: 7px;
+  }
+
+  .liveShell[data-stage='game'] .stageTabs button {
+    gap: 4px;
+    min-height: 0;
+    padding: 3px 8px;
+    font-size: 6px;
+  }
+
+  .liveShell[data-stage='game'] .stageTabs button > small,
+  .liveShell[data-stage='game'] .stageTabs button > span {
+    font-size: 5px;
+  }
+
+  .liveShell[data-stage='game'] .streamDeckConsole {
+    grid-template-rows: 54px minmax(0, 1fr) 30px;
+    gap: 4px;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    padding: 4px;
+  }
+
+  .liveShell[data-stage='game'] .consoleTopbar {
+    grid-template-columns: minmax(230px, 1fr) minmax(180px, 0.8fr) minmax(210px, 0.9fr);
+    gap: 4px;
+    min-height: 0;
+  }
+
+  .liveShell[data-stage='game'] .consoleClock,
+  .liveShell[data-stage='game'] .consoleMatchState,
+  .liveShell[data-stage='game'] .consoleMarker {
+    min-height: 0;
+    border-radius: 7px;
+    padding: 4px 6px;
+  }
+
+  .liveShell[data-stage='game'] .consoleMatchState {
+    grid-column: auto;
+  }
+
+  .liveShell[data-stage='game'] .consoleClock {
+    grid-template-columns: 28px minmax(80px, 1fr) 28px minmax(64px, auto);
+  }
+
+  .liveShell[data-stage='game'] .consoleClock > button,
+  .liveShell[data-stage='game'] .consoleStateActions button {
+    padding: 4px;
+  }
+
+  .liveShell[data-stage='game'] .consoleClock .consoleClockToggle {
+    grid-column: auto;
+    min-height: 0;
+  }
+
+  .liveShell[data-stage='game'] .consoleClock > div strong {
+    font-size: 24px;
+  }
+
+  .liveShell[data-stage='game'] .consoleMarker > i {
+    width: 11px;
+    height: 11px;
+    border-width: 2px;
+  }
+
+  .liveShell[data-stage='game'] .consoleMarker > span {
+    font-size: 8px;
+  }
+
+  .liveShell[data-stage='game'] .consoleMarker > small,
+  .liveShell[data-stage='game'] .consoleStateActions button {
+    font-size: 5px;
+  }
+
+  .liveShell[data-stage='game'] .consoleMain {
+    display: grid;
+    grid-template-columns: minmax(460px, 1.3fr) minmax(300px, 0.7fr);
+    gap: 4px;
+    min-height: 0;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathDeck,
+  .liveShell[data-stage='game'] .eventControlDeck {
+    min-height: 0;
+    border-radius: 7px;
+    padding: 4px;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathDeck > header,
+  .liveShell[data-stage='game'] .eventControlDeck > header {
+    align-items: center;
+    margin-bottom: 3px;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathDeck > header span,
+  .liveShell[data-stage='game'] .eventControlDeck > header span,
+  .liveShell[data-stage='game'] .playerDeathDeck > header small {
+    display: none;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathDeck > header strong,
+  .liveShell[data-stage='game'] .eventControlDeck > header strong {
+    font-size: 5px;
+  }
+
+  .liveShell[data-stage='game'] .editLineupButton {
+    padding: 3px 5px;
+    font-size: 4px;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathDeck > div {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 3px;
+    min-height: 0;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathKey > button {
+    gap: 1px;
+    border-radius: 7px;
+    padding: 3px 2px;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathKey > button > kbd {
+    top: 3px;
+    left: 3px;
+  }
+
+  .liveShell[data-stage='game'] .consolePlayerAvatar {
+    width: clamp(40px, 9.5vh, 58px) !important;
+    height: clamp(40px, 9.5vh, 58px) !important;
+    flex-basis: clamp(40px, 9.5vh, 58px) !important;
+    border-radius: 12px !important;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathKey > button > strong {
+    font-size: 6px;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathKey > button > span {
+    display: none;
+  }
+
+  .liveShell[data-stage='game'] .playerDeathKey > button > b {
+    font-size: 4px;
+  }
+
+  .liveShell[data-stage='game'] .eventControlDeck > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    gap: 3px;
+    min-height: 0;
+  }
+
+  .liveShell[data-stage='game'] .killKey {
+    grid-column: 1 / span 2;
+    grid-row: 1;
+  }
+
+  .liveShell[data-stage='game'] .consoleResultSwitch {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .liveShell[data-stage='game'] .eventKey,
+  .liveShell[data-stage='game'] .killKey {
+    gap: 2px;
+    border-radius: 6px;
+    padding: 3px 4px;
+  }
+
+  .liveShell[data-stage='game'] .eventKey > span,
+  .liveShell[data-stage='game'] .killKey > span {
+    font-size: 5px;
+  }
+
+  .liveShell[data-stage='game'] .eventKey > strong,
+  .liveShell[data-stage='game'] .killKey > strong {
+    font-size: 13px;
+  }
+
+  .liveShell[data-stage='game'] .consoleResultSwitch button {
+    font-size: 4.5px;
+  }
+
+  .liveShell[data-stage='game'] .recentEventStrip {
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 3px;
+    min-height: 0;
+    border-radius: 7px;
+    padding: 3px;
+  }
+
+  .liveShell[data-stage='game'] .recentEventHeading {
+    grid-template-columns: 1fr;
+    gap: 2px;
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+    padding: 0 3px 0 0;
+  }
+
+  .liveShell[data-stage='game'] .recentEventHeading > span {
+    display: none;
+  }
+
+  .liveShell[data-stage='game'] .recentEventHeading button {
+    padding: 3px;
+    font-size: 4px;
+  }
+
+  .liveShell[data-stage='game'] .recentEventStrip > div:last-child {
+    overflow: hidden;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  .liveShell[data-stage='game'] .recentEventStrip article:nth-of-type(n + 4) {
+    display: none;
+  }
+
+  .liveShell[data-stage='game'] .recentEventStrip article,
+  .liveShell[data-stage='game'] .recentEventStrip p {
+    min-height: 0;
+    padding: 2px 5px;
+  }
+
+  .liveShell[data-stage='game'] .recentEventStrip article small {
+    display: none;
+  }
+}

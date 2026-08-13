@@ -154,7 +154,7 @@ export default function LiveMatchMode({
   }
 
   return (
-    <section className={styles.liveShell}>
+    <section className={styles.liveShell} data-stage={stage}>
       <header className={styles.liveHeader}>
         <div>
           <span className={styles.liveBadge}><i /> LIVE INPUT</span>
