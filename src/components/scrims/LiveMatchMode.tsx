@@ -33,6 +33,11 @@ type HeroRoleFilter = 'All' | 'Tank' | 'Marksman' | 'Fighter' | 'Assassin' | 'Ma
 type DraftField = 'ourBans' | 'enemyBans' | 'ourPicks' | 'enemyPicks';
 type GoldMinute = 5 | 10 | 15;
 
+interface GoldDraft {
+  ours: string;
+  enemy: string;
+}
+
 interface LiveMatchModeProps {
   game: ScrimGame;
   opponent: string;
@@ -602,12 +607,16 @@ function LiveGame({
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [markFeedback, setMarkFeedback] = useState('');
-  const [goldOpen, setGoldOpen] = useState(false);
+  const [goldMinute, setGoldMinute] = useState<GoldMinute | null>(null);
+  const [goldDraft, setGoldDraft] = useState<GoldDraft>({ ours: '', enemy: '' });
+  const [goldError, setGoldError] = useState('');
   const [lineupOpen, setLineupOpen] = useState(() => needsDraftLineupMapping(game));
   const [lineupDraft, setLineupDraft] = useState<Record<string, string>>(() =>
     buildSuggestedLineup(game),
   );
   const feedbackTimerRef = useRef<number | null>(null);
+  const ourGoldInputRef = useRef<HTMLInputElement>(null);
+  const enemyGoldInputRef = useRef<HTMLInputElement>(null);
   const clock = normalizedClock(game.liveClock);
   const running = Boolean(clock.startedAt);
   const elapsed = elapsedAt(clock, now);
@@ -632,8 +641,17 @@ function LiveGame({
   );
 
   useEffect(() => {
+    if (goldMinute === null) return;
+    const frame = window.requestAnimationFrame(() => {
+      ourGoldInputRef.current?.focus();
+      ourGoldInputRef.current?.select();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [goldMinute]);
+
+  useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
-      if (lineupOpen || goldOpen) return;
+      if (lineupOpen || goldMinute !== null) return;
       const target = event.target as HTMLElement | null;
       if (
         event.repeat ||
@@ -672,7 +690,7 @@ function LiveGame({
       } else if (key === 'p') {
         toggleClock();
       } else if (key === 'g') {
-        setGoldOpen((value) => !value);
+        openGoldCheckpoint(checkpointDue ?? suggestedGoldCheckpoint(game, elapsed));
       }
     }
 
@@ -698,16 +716,34 @@ function LiveGame({
     }
   }
 
-  function updateGold(minute: GoldMinute, owner: 'ours' | 'enemy', value: number) {
+  function openGoldCheckpoint(minute: GoldMinute) {
     const fields = GOLD_FIELDS[minute];
-    const ourGold = owner === 'ours' ? value : game[fields.ours] ?? 0;
-    const enemyGold = owner === 'enemy' ? value : game[fields.enemy] ?? 0;
+    setGoldDraft({
+      ours: formatCompactGoldInput(game[fields.ours] ?? 0),
+      enemy: formatCompactGoldInput(game[fields.enemy] ?? 0),
+    });
+    setGoldError('');
+    setGoldMinute(minute);
+  }
+
+  function saveGoldCheckpoint() {
+    if (goldMinute === null) return;
+    const ourGold = parseCompactGoldInput(goldDraft.ours);
+    const enemyGold = parseCompactGoldInput(goldDraft.enemy);
+    if (ourGold === null || enemyGold === null || ourGold <= 0 || enemyGold <= 0) {
+      setGoldError('Isi kedua total gold. Contoh: 13.8 = 13,800.');
+      return;
+    }
+
+    const fields = GOLD_FIELDS[goldMinute];
     onChange({
       ...game,
       [fields.ours]: ourGold,
       [fields.enemy]: enemyGold,
       [fields.difference]: ourGold - enemyGold,
     });
+    flashFeedback(`Gold @${goldMinute} saved · ${goldLeadLabel(ourGold - enemyGold)}`);
+    setGoldMinute(null);
   }
 
   function makeLiveEvent(
@@ -896,6 +932,13 @@ function LiveGame({
   }
 
   const checkpointDue = nextGoldCheckpoint(game, elapsed);
+  const goldButtonMinute = checkpointDue ?? suggestedGoldCheckpoint(game, elapsed);
+  const previewOurGold = parseCompactGoldInput(goldDraft.ours);
+  const previewEnemyGold = parseCompactGoldInput(goldDraft.enemy);
+  const previewDifference =
+    previewOurGold !== null && previewEnemyGold !== null
+      ? previewOurGold - previewEnemyGold
+      : null;
 
   return (
     <section className={`${styles.livePanel} ${styles.streamDeckConsole}`}>
@@ -928,9 +971,9 @@ function LiveGame({
             <button
               type="button"
               data-due={Boolean(checkpointDue)}
-              onClick={() => setGoldOpen(true)}
+              onClick={() => openGoldCheckpoint(goldButtonMinute)}
             >
-              {checkpointDue ? `GOLD @${checkpointDue} DUE` : 'GOLD'} <kbd>G</kbd>
+              {checkpointDue ? `GOLD @${checkpointDue} DUE` : `GOLD @${goldButtonMinute}`} <kbd>G</kbd>
             </button>
             <button type="button" onClick={finishLiveGame}>FINISH</button>
           </div>
@@ -1024,26 +1067,108 @@ function LiveGame({
         </div>
       </footer>
 
-      {goldOpen && (
+      {goldMinute !== null && (
         <div className={styles.goldOverlay} role="dialog" aria-modal="true" aria-label="Gold checkpoints">
           <section>
             <header>
-              <div><span>GOLD CHECKPOINTS</span><strong>Enter both totals</strong></div>
-              <button type="button" onClick={() => setGoldOpen(false)}>CLOSE</button>
+              <div>
+                <span>GOLD CHECKPOINT @{goldMinute}</span>
+                <strong>Two totals. One quick save.</strong>
+                <small>Type 13.8 and it becomes 13,800 automatically.</small>
+              </div>
+              <button type="button" onClick={() => setGoldMinute(null)}>SKIP FOR NOW</button>
             </header>
-            <div className={styles.consoleGoldGrid}>
+            <nav className={styles.goldMinuteTabs} aria-label="Choose gold checkpoint">
               {([5, 10, 15] as const).map((minute) => {
                 const fields = GOLD_FIELDS[minute];
-                const difference = game[fields.difference] ?? 0;
                 return (
-                  <article key={minute}>
-                    <header><strong>@ {minute}</strong><span>{formatSignedNumber(difference)}</span></header>
-                    <label><span>OUR GOLD</span><input type="number" min="0" inputMode="numeric" value={game[fields.ours] || ''} onChange={(event) => updateGold(minute, 'ours', Number(event.target.value) || 0)} /></label>
-                    <label><span>ENEMY GOLD</span><input type="number" min="0" inputMode="numeric" value={game[fields.enemy] || ''} onChange={(event) => updateGold(minute, 'enemy', Number(event.target.value) || 0)} /></label>
-                  </article>
+                  <button
+                    className={goldMinute === minute ? styles.activeGoldMinute : ''}
+                    type="button"
+                    key={minute}
+                    onClick={() => openGoldCheckpoint(minute)}
+                  >
+                    <span>@{minute}</span>
+                    <small>{goldCheckpointStatus(game, minute)}</small>
+                    <b>
+                      {goldCheckpointStatus(game, minute) === 'SAVED'
+                        ? formatSignedNumber(game[fields.difference] ?? 0)
+                        : '—'}
+                    </b>
+                  </button>
                 );
               })}
-            </div>
+            </nav>
+            <form
+              className={styles.quickGoldForm}
+              onSubmit={(event) => {
+                event.preventDefault();
+                saveGoldCheckpoint();
+              }}
+            >
+              <div className={styles.quickGoldInputs}>
+                <label>
+                  <span>OUR GOLD</span>
+                  <div>
+                    <input
+                      ref={ourGoldInputRef}
+                      type="text"
+                      inputMode="decimal"
+                      enterKeyHint="next"
+                      autoComplete="off"
+                      value={goldDraft.ours}
+                      placeholder="13.8"
+                      aria-label={`Our total gold at minute ${goldMinute}`}
+                      onChange={(event) => {
+                        setGoldDraft((draft) => ({ ...draft, ours: event.target.value }));
+                        setGoldError('');
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return;
+                        event.preventDefault();
+                        enemyGoldInputRef.current?.focus();
+                        enemyGoldInputRef.current?.select();
+                      }}
+                    />
+                    <b>K</b>
+                  </div>
+                  <small>{goldInputPreview(previewOurGold)}</small>
+                </label>
+                <i>VS</i>
+                <label>
+                  <span>ENEMY GOLD</span>
+                  <div>
+                    <input
+                      ref={enemyGoldInputRef}
+                      type="text"
+                      inputMode="decimal"
+                      enterKeyHint="done"
+                      autoComplete="off"
+                      value={goldDraft.enemy}
+                      placeholder="12.9"
+                      aria-label={`Enemy total gold at minute ${goldMinute}`}
+                      onChange={(event) => {
+                        setGoldDraft((draft) => ({ ...draft, enemy: event.target.value }));
+                        setGoldError('');
+                      }}
+                    />
+                    <b>K</b>
+                  </div>
+                  <small>{goldInputPreview(previewEnemyGold)}</small>
+                </label>
+              </div>
+              <output data-tone={goldLeadTone(previewDifference)}>
+                <span>AUTO DIFFERENCE</span>
+                <strong>{previewDifference === null ? 'WAITING FOR BOTH TOTALS' : goldLeadLabel(previewDifference)}</strong>
+              </output>
+              {goldError && <p role="alert">{goldError}</p>}
+              <footer>
+                <button type="button" onClick={() => setGoldMinute(null)}>SKIP</button>
+                <button className={styles.saveGoldButton} type="submit">
+                  SAVE @{goldMinute} + CLOSE →
+                </button>
+              </footer>
+            </form>
           </section>
         </div>
       )}
@@ -1505,6 +1630,70 @@ function nextGoldCheckpoint(game: ScrimGame, elapsedSeconds: number) {
       checkpoint.ours === 0 &&
       checkpoint.enemy === 0,
   )?.minute;
+}
+
+function suggestedGoldCheckpoint(game: ScrimGame, elapsedSeconds: number): GoldMinute {
+  const due = nextGoldCheckpoint(game, elapsedSeconds);
+  if (due) return due;
+  if (elapsedSeconds < 5 * 60) return 5;
+  if (elapsedSeconds < 10 * 60) return 10;
+  return 15;
+}
+
+function goldCheckpointStatus(game: ScrimGame, minute: GoldMinute) {
+  const fields = GOLD_FIELDS[minute];
+  return game[fields.ours] > 0 && game[fields.enemy] > 0 ? 'SAVED' : 'PENDING';
+}
+
+function formatCompactGoldInput(totalGold: number) {
+  if (!totalGold) return '';
+  return (totalGold / 1_000).toFixed(2).replace(/\.?0+$/, '');
+}
+
+function parseCompactGoldInput(value: string): number | null {
+  const clean = value.trim().toLowerCase().replace(/\s+/g, '');
+  if (!clean) return null;
+
+  if (/^\d+(?:[.,]\d+)?k$/.test(clean)) {
+    const parsed = Number(clean.slice(0, -1).replace(',', '.'));
+    return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed * 1_000) : null;
+  }
+
+  if (/^\d+$/.test(clean)) {
+    const parsed = Number(clean);
+    return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : null;
+  }
+
+  if (/^\d{1,3}(?:[.,]\d{3})+$/.test(clean)) {
+    const parsed = Number(clean.replace(/[.,]/g, ''));
+    return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : null;
+  }
+
+  if (/^\d+(?:[.,]\d{1,2})$/.test(clean)) {
+    const parsed = Number(clean.replace(',', '.'));
+    return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed * 1_000) : null;
+  }
+
+  return null;
+}
+
+function goldInputPreview(value: number | null) {
+  return value !== null && value > 0
+    ? `= ${value.toLocaleString('en-US')}`
+    : 'Example: 13.8';
+}
+
+function goldLeadLabel(difference: number) {
+  if (difference === 0) return 'EVEN';
+  const value = Math.abs(difference).toLocaleString('en-US');
+  return difference > 0 ? `OUR LEAD +${value}` : `ENEMY LEAD +${value}`;
+}
+
+function goldLeadTone(difference: number | null) {
+  if (difference === null) return 'pending';
+  if (difference > 0) return 'ours';
+  if (difference < 0) return 'enemy';
+  return 'even';
 }
 
 function formatSignedNumber(value: number) {

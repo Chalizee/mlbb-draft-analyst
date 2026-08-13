@@ -1542,6 +1542,11 @@
   font-size: 13px;
 }
 
+.goldOverlay > section > header small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
 .goldOverlay > section > header button {
   border: 1px solid var(--line-bright);
   border-radius: 7px;
@@ -1550,6 +1555,195 @@
   color: var(--muted);
   font-size: 7px;
   cursor: pointer;
+}
+
+.goldMinuteTabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.goldMinuteTabs > button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 8px;
+  color: var(--dim);
+  cursor: pointer;
+}
+
+.goldMinuteTabs > button > span,
+.goldMinuteTabs > button > small,
+.goldMinuteTabs > button > b {
+  font: 500 7px var(--font-mono);
+}
+
+.goldMinuteTabs > button > small {
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goldMinuteTabs > button > b {
+  color: var(--muted);
+}
+
+.goldMinuteTabs .activeGoldMinute {
+  border-color: rgba(186, 252, 82, 0.5);
+  background: rgba(186, 252, 82, 0.07);
+  color: var(--accent);
+}
+
+.quickGoldForm {
+  display: grid;
+  gap: 9px;
+}
+
+.quickGoldInputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+
+.quickGoldInputs > i {
+  color: var(--dim);
+  font: 500 8px var(--font-mono);
+  font-style: normal;
+}
+
+.quickGoldInputs > label {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 11px;
+}
+
+.quickGoldInputs > label > span,
+.quickGoldInputs > label > small {
+  font: 500 7px var(--font-mono);
+}
+
+.quickGoldInputs > label:first-child > span {
+  color: var(--cyan);
+}
+
+.quickGoldInputs > label:last-child > span {
+  color: var(--danger);
+}
+
+.quickGoldInputs > label > small {
+  color: var(--dim);
+}
+
+.quickGoldInputs > label > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.quickGoldInputs input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  padding: 11px;
+  color: var(--text);
+  font: 500 clamp(20px, 3vw, 32px) var(--font-mono);
+}
+
+.quickGoldInputs input::placeholder {
+  color: var(--dim);
+  opacity: 0.45;
+}
+
+.quickGoldInputs label > div > b {
+  padding: 0 11px 0 4px;
+  color: var(--dim);
+  font: 500 9px var(--font-mono);
+}
+
+.quickGoldForm output {
+  display: grid;
+  min-height: 65px;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  text-align: center;
+}
+
+.quickGoldForm output > span {
+  color: var(--dim);
+  font: 500 7px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.quickGoldForm output > strong {
+  font: 500 17px var(--font-mono);
+}
+
+.quickGoldForm output[data-tone='ours'] {
+  border-color: rgba(97, 230, 210, 0.32);
+  color: var(--cyan);
+}
+
+.quickGoldForm output[data-tone='enemy'] {
+  border-color: rgba(255, 123, 114, 0.32);
+  color: var(--danger);
+}
+
+.quickGoldForm output[data-tone='even'] {
+  border-color: rgba(186, 252, 82, 0.28);
+  color: var(--accent);
+}
+
+.quickGoldForm > p {
+  margin: 0;
+  border: 1px solid rgba(255, 123, 114, 0.28);
+  border-radius: 7px;
+  background: rgba(255, 123, 114, 0.06);
+  padding: 8px;
+  color: var(--danger);
+  font-size: 8px;
+}
+
+.quickGoldForm > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.quickGoldForm > footer button {
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 9px 12px;
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.quickGoldForm > footer .saveGoldButton {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .consoleGoldGrid {
@@ -2462,6 +2656,19 @@
 }
 
 @media (max-width: 760px) {
+  .goldOverlay {
+    position: fixed;
+    inset: 0;
+    align-items: end;
+    padding: 8px;
+  }
+
+  .goldOverlay > section {
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    padding: 12px;
+  }
+
   .streamDeckConsole {
     grid-template-rows: auto minmax(124px, 0.72fr) minmax(220px, 1.28fr) 52px;
     gap: 6px;
@@ -2813,6 +3020,59 @@
 }
 
 @media (max-width: 520px) {
+  .goldOverlay > section > header {
+    align-items: flex-start;
+  }
+
+  .goldOverlay > section > header strong {
+    font-size: 12px;
+  }
+
+  .goldOverlay > section > header small {
+    font-size: 7px;
+  }
+
+  .goldMinuteTabs {
+    gap: 4px;
+  }
+
+  .goldMinuteTabs > button {
+    grid-template-columns: auto 1fr;
+    gap: 4px;
+    padding: 7px 6px;
+  }
+
+  .goldMinuteTabs > button > b {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+
+  .quickGoldInputs {
+    gap: 5px;
+  }
+
+  .quickGoldInputs > label {
+    gap: 4px;
+    padding: 8px 6px;
+  }
+
+  .quickGoldInputs input {
+    padding: 9px 7px;
+    font-size: 22px;
+  }
+
+  .quickGoldInputs label > div > b {
+    padding-right: 7px;
+  }
+
+  .quickGoldForm output {
+    min-height: 54px;
+  }
+
+  .quickGoldForm > footer button {
+    min-height: 40px;
+  }
+
   .streamDeckConsole {
     gap: 7px;
     padding: 8px;
