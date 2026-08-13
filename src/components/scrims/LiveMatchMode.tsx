@@ -52,6 +52,7 @@ interface DraftStep {
 }
 
 const NOTE_CATEGORIES: ScrimLiveNoteCategory[] = [
+  'Review',
   'Draft',
   'Rotation',
   'Objective',
@@ -188,7 +189,17 @@ export default function LiveMatchMode({
         />
       )}
 
-      <QuickNotes game={game} onChange={onChange} />
+      {stage === 'draft' ? (
+        <QuickNotes game={game} onChange={onChange} />
+      ) : (
+        <details className={styles.optionalNotes}>
+          <summary>
+            Optional detailed note
+            <small>{game.liveNotes?.length ?? 0} timeline entries</small>
+          </summary>
+          <QuickNotes game={game} onChange={onChange} />
+        </details>
+      )}
     </section>
   );
 }
@@ -394,6 +405,8 @@ function LiveGame({
   onFinish: (game: ScrimGame) => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
+  const [markFeedback, setMarkFeedback] = useState('');
+  const feedbackTimerRef = useRef<number | null>(null);
   const clock = normalizedClock(game.liveClock);
   const running = Boolean(clock.startedAt);
   const elapsed = elapsedAt(clock, now);
@@ -403,6 +416,15 @@ function LiveGame({
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, [running]);
+
+  useEffect(
+    () => () => {
+      if (feedbackTimerRef.current !== null) {
+        window.clearTimeout(feedbackTimerRef.current);
+      }
+    },
+    [],
+  );
 
   function updateClock(nextElapsed: number, keepRunning = running) {
     onChange({
@@ -463,6 +485,49 @@ function LiveGame({
     });
   }
 
+  function markMoment() {
+    const markedAt = elapsedAt(normalizedClock(game.liveClock), Date.now());
+    const marker: ScrimLiveNote = {
+      id: makeId('live-marker'),
+      elapsedSeconds: markedAt,
+      category: 'Review',
+      text: '',
+      createdAt: new Date().toISOString(),
+    };
+
+    onChange({
+      ...game,
+      liveNotes: [...(game.liveNotes ?? []), marker],
+    });
+    setMarkFeedback(`Saved at ${formatClock(markedAt)}`);
+    if (feedbackTimerRef.current !== null) {
+      window.clearTimeout(feedbackTimerRef.current);
+    }
+    feedbackTimerRef.current = window.setTimeout(() => setMarkFeedback(''), 1_800);
+  }
+
+  function undoLastMarker() {
+    const notes = game.liveNotes ?? [];
+    let markerIndex = -1;
+    for (let index = notes.length - 1; index >= 0; index -= 1) {
+      if (notes[index].category === 'Review') {
+        markerIndex = index;
+        break;
+      }
+    }
+    if (markerIndex < 0) return;
+    onChange({
+      ...game,
+      liveNotes: notes.filter((_, index) => index !== markerIndex),
+    });
+    setMarkFeedback('Last marker removed');
+  }
+
+  const reviewMarkers = (game.liveNotes ?? []).filter(
+    (note) => note.category === 'Review',
+  );
+  const lastReviewMarker = reviewMarkers[reviewMarkers.length - 1];
+
   function finishLiveGame() {
     const finalElapsed = elapsedAt(normalizedClock(game.liveClock), Date.now());
     onFinish({
@@ -492,6 +557,30 @@ function LiveGame({
             <button type="button" onClick={() => updateClock(elapsed + 10)}>+10s</button>
           </div>
           <small>Timestamp notes follows this clock.</small>
+        </article>
+
+        <article className={styles.momentCard} data-saved={Boolean(markFeedback)}>
+          <span>ONE-TAP REVIEW MARKER</span>
+          <strong>See something important?</strong>
+          <button type="button" onClick={markMoment}>
+            <i /> MARK MOMENT
+            <small>{formatClock(elapsed)}</small>
+          </button>
+          <footer>
+            <span>
+              {markFeedback ||
+                (lastReviewMarker
+                  ? `Last marker ${formatClock(lastReviewMarker.elapsedSeconds)}`
+                  : 'No marker yet')}
+            </span>
+            <button
+              type="button"
+              disabled={!lastReviewMarker}
+              onClick={undoLastMarker}
+            >
+              Undo
+            </button>
+          </footer>
         </article>
 
         <article className={styles.resultCard}>
@@ -770,7 +859,7 @@ function QuickNotes({
                 <>
                   <time>{formatClock(note.elapsedSeconds)}</time>
                   <span data-category={normalize(note.category)}>{note.category}</span>
-                  <p>{note.text}</p>
+                  <p>{note.text || 'Moment marked — add context after the game.'}</p>
                   <div>
                     <button type="button" onClick={() => startEditing(note)}>Edit</button>
                     <button type="button" onClick={() => deleteNote(note)}>Delete</button>
@@ -785,9 +874,33 @@ function QuickNotes({
   );
 }
 
-export function LiveNotesReview({ notes }: { notes?: ScrimLiveNote[] }) {
+export function LiveNotesReview({
+  notes,
+  onChange,
+  readOnly = false,
+}: {
+  notes?: ScrimLiveNote[];
+  onChange?: (notes: ScrimLiveNote[]) => void;
+  readOnly?: boolean;
+}) {
   const ordered = sortedNotes(notes ?? []);
   if (ordered.length === 0) return null;
+
+  function updateMarker(noteId: string, text: string) {
+    if (!onChange) return;
+    onChange(
+      (notes ?? []).map((note) =>
+        note.id === noteId ? { ...note, text } : note,
+      ),
+    );
+  }
+
+  function deleteMarker(note: ScrimLiveNote) {
+    if (!onChange || !window.confirm(`Delete marker at ${formatClock(note.elapsedSeconds)}?`)) {
+      return;
+    }
+    onChange((notes ?? []).filter((item) => item.id !== note.id));
+  }
 
   return (
     <section className={styles.reviewNotes}>
@@ -796,13 +909,33 @@ export function LiveNotesReview({ notes }: { notes?: ScrimLiveNote[] }) {
         <small>{ordered.length} timestamped notes</small>
       </header>
       <div>
-        {ordered.map((note) => (
-          <article key={note.id}>
-            <time>{formatClock(note.elapsedSeconds)}</time>
-            <span>{note.category}</span>
-            <p>{note.text}</p>
-          </article>
-        ))}
+        {ordered.map((note) =>
+          note.category === 'Review' ? (
+            <article className={styles.reviewMarker} key={note.id}>
+              <time>{formatClock(note.elapsedSeconds)}</time>
+              <span>MARKER</span>
+              {readOnly || !onChange ? (
+                <p>{note.text || 'Moment marked for review.'}</p>
+              ) : (
+                <div>
+                  <input
+                    aria-label={`Review note at ${formatClock(note.elapsedSeconds)}`}
+                    value={note.text}
+                    placeholder="Tulis momennya setelah lihat VOD…"
+                    onChange={(event) => updateMarker(note.id, event.target.value)}
+                  />
+                  <button type="button" onClick={() => deleteMarker(note)}>Delete</button>
+                </div>
+              )}
+            </article>
+          ) : (
+            <article key={note.id}>
+              <time>{formatClock(note.elapsedSeconds)}</time>
+              <span>{note.category}</span>
+              <p>{note.text}</p>
+            </article>
+          ),
+        )}
       </div>
     </section>
   );

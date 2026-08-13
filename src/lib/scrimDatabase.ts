@@ -16,6 +16,7 @@ export type ScrimStatus = 'Draft' | 'Complete' | 'Reviewed' | 'Shared';
 export type ObjectiveOwner = 'Us' | 'Opponent' | 'None';
 export type WorkspaceRole = 'owner' | 'editor' | 'viewer';
 export type ScrimLiveNoteCategory =
+  | 'Review'
   | 'Draft'
   | 'Rotation'
   | 'Objective'

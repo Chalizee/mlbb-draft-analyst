@@ -1240,7 +1240,15 @@ export default function ScrimsPage() {
                     <p>Keputusan, pattern, atau konteks yang angka tidak tangkap.</p>
                   </div>
                 </div>
-                <LiveNotesReview notes={activeGame.liveNotes} />
+                <LiveNotesReview
+                  notes={activeGame.liveNotes}
+                  readOnly={Boolean(readOnly)}
+                  onChange={
+                    readOnly
+                      ? undefined
+                      : (notes) => updateGame('liveNotes', notes)
+                  }
+                />
                 <textarea
                   className="game-notes"
                   value={activeGame.notes}
