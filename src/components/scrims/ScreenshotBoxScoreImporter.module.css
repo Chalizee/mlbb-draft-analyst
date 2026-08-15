@@ -54,6 +54,104 @@
   padding: 7px 9px;
 }
 
+.clipboardBar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(330px, 0.72fr);
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(186, 252, 82, 0.22);
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(186, 252, 82, 0.055), transparent 58%),
+    var(--bg);
+  padding: 11px 12px;
+}
+
+.clipboardBar > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.clipboardBar > div:first-child > span {
+  color: var(--accent);
+  font: 500 6px var(--font-mono);
+  letter-spacing: 0.1em;
+}
+
+.clipboardBar > div:first-child > strong {
+  font-size: 10px;
+}
+
+.clipboardBar > div:first-child > small {
+  color: var(--dim);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.clipboardBar > div:last-child {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.clipboardBar button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  padding: 9px 8px;
+  color: var(--dim);
+  font-size: 7px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.clipboardBar button:last-child {
+  border-right: 0;
+}
+
+.clipboardBar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.clipboardBar button > span {
+  display: grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border: 1px solid var(--line-bright);
+  border-radius: 5px;
+  font: 600 6px var(--font-mono);
+}
+
+.clipboardBar button > small {
+  color: var(--dim);
+  font: 500 5px var(--font-mono);
+}
+
+.clipboardBar .activePasteTarget {
+  background: rgba(186, 252, 82, 0.08);
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.clipboardBar .activePasteTarget > span {
+  border-color: rgba(186, 252, 82, 0.38);
+}
+
+.clipboardBar .activePasteTarget > small {
+  color: var(--accent);
+}
+
 .setupGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(180px, 0.62fr);
@@ -138,6 +236,197 @@
   grid-template-columns: auto minmax(100px, 1fr) minmax(180px, auto);
   align-items: center;
   gap: 12px;
+}
+
+.sourcePreview {
+  display: grid;
+  gap: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(97, 230, 210, 0.2);
+  border-radius: 11px;
+  background: var(--bg);
+  padding: 12px;
+}
+
+.sourcePreview > header,
+.previewDialog > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sourcePreview > header > div,
+.previewDialog > header > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sourcePreview > header span,
+.previewDialog > header span {
+  color: var(--cyan);
+  font: 500 6px var(--font-mono);
+  letter-spacing: 0.1em;
+}
+
+.sourcePreview > header strong,
+.previewDialog > header strong {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sourcePreview > header small {
+  flex: 0 0 auto;
+  color: var(--dim);
+  font-size: 7px;
+}
+
+.previewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.previewCard,
+.previewPlaceholder {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-bright);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.previewCard {
+  display: grid;
+  padding: 0;
+  color: var(--text);
+  text-align: left;
+  cursor: zoom-in;
+}
+
+.previewCard:hover,
+.previewCard:focus-visible {
+  border-color: var(--cyan);
+  outline: none;
+}
+
+.previewImage,
+.expandedImage {
+  position: relative;
+  overflow: hidden;
+  background: #020403;
+}
+
+.previewImage {
+  aspect-ratio: 16 / 7.7;
+  border-bottom: 1px solid var(--line);
+}
+
+.previewImage img,
+.expandedImage img {
+  object-fit: contain;
+}
+
+.previewCaption {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+}
+
+.previewCaption > span,
+.previewPlaceholder > span {
+  color: var(--cyan);
+  font: 500 6px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.previewCaption > strong {
+  overflow: hidden;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewCaption > small {
+  color: var(--dim);
+  font-size: 6px;
+  white-space: nowrap;
+}
+
+.previewPlaceholder {
+  display: grid;
+  min-height: 170px;
+  place-content: center;
+  gap: 5px;
+  border-style: dashed;
+  padding: 18px;
+  color: var(--dim);
+  text-align: center;
+}
+
+.previewPlaceholder strong {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.previewPlaceholder small {
+  font-size: 7px;
+}
+
+.previewOverlay {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: rgba(2, 4, 3, 0.92);
+  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+    max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  backdrop-filter: blur(10px);
+}
+
+.previewDialog {
+  display: grid;
+  width: min(1480px, 100%);
+  max-height: calc(100dvh - 36px);
+  gap: 10px;
+  border: 1px solid rgba(186, 252, 82, 0.35);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 12px;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.55);
+}
+
+.previewDialog > header button {
+  flex: 0 0 auto;
+  border: 1px solid var(--line-bright);
+  border-radius: 7px;
+  background: var(--bg);
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.previewDialog > header button:hover,
+.previewDialog > header button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+
+.expandedImage {
+  width: 100%;
+  height: min(82dvh, 900px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
 }
 
 .readBar > button,
@@ -341,6 +630,10 @@
 }
 
 @media (max-width: 900px) {
+  .clipboardBar {
+    grid-template-columns: 1fr;
+  }
+
   .setupGrid {
     grid-template-columns: 1fr;
   }
@@ -354,9 +647,60 @@
   }
 
   .heading,
+  .sourcePreview > header,
   .review > header,
   .applyBar {
     align-items: stretch;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .importer {
+    padding: 14px;
+  }
+
+  .clipboardBar > div:last-child {
+    grid-template-columns: 1fr;
+  }
+
+  .clipboardBar button {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .clipboardBar button:last-child {
+    border-bottom: 0;
+  }
+
+  .previewGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .previewPlaceholder {
+    min-height: 120px;
+  }
+
+  .previewCaption {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .previewCaption > small {
+    grid-column: 1 / -1;
+  }
+
+  .previewOverlay {
+    align-items: start;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+
+  .previewDialog {
+    max-height: calc(100dvh - 16px);
+    padding: 9px;
+  }
+
+  .expandedImage {
+    height: calc(100dvh - 86px);
   }
 }

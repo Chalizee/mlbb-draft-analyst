@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState, type ChangeEvent } from 'react';
+import NextImage from 'next/image';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { HERO_DATA } from '@/data/heroData';
 import {
   SCRIM_ROLES,
@@ -47,6 +48,8 @@ type NumericField =
   | 'turretDamage'
   | 'teamfightParticipation';
 
+type ScreenshotSlot = 'data' | 'overview';
+
 const HERO_NAMES = HERO_DATA.map((hero) => hero.name).sort((a, b) =>
   a.localeCompare(b),
 );
@@ -58,6 +61,8 @@ export default function ScreenshotBoxScoreImporter({
 }: ScreenshotBoxScoreImporterProps) {
   const [dataFile, setDataFile] = useState<File | null>(null);
   const [overviewFile, setOverviewFile] = useState<File | null>(null);
+  const [pasteTarget, setPasteTarget] = useState<ScreenshotSlot>('data');
+  const [previewSlot, setPreviewSlot] = useState<ScreenshotSlot | null>(null);
   const [ourSide, setOurSide] = useState<ScreenshotTeamSide>('left');
   const [review, setReview] = useState<ReviewState | null>(null);
   const [progress, setProgress] = useState(0);
@@ -82,6 +87,60 @@ export default function ScreenshotBoxScoreImporter({
       review.ourRows.every((row) => row.role) &&
       duplicateRoles.size === 0,
   );
+
+  const expandedPreviewFile =
+    previewSlot === 'data'
+      ? dataFile
+      : previewSlot === 'overview'
+        ? overviewFile
+        : null;
+
+  useEffect(() => {
+    function handleClipboardPaste(event: ClipboardEvent) {
+      if (disabled || reading) return;
+      if (!event.clipboardData) return;
+      const screenshot = screenshotFromClipboard(event.clipboardData, pasteTarget);
+      if (!screenshot) return;
+
+      event.preventDefault();
+      setError('');
+      setApplied(false);
+      setReview(null);
+      setProgress(0);
+
+      if (pasteTarget === 'data') {
+        setDataFile(screenshot);
+        setPasteTarget('overview');
+        setProgressLabel(
+          overviewFile
+            ? 'Data screenshot replaced. Both screenshots are ready to read.'
+            : 'Data screenshot pasted. Copy Overall, then press Ctrl+V again.',
+        );
+      } else {
+        setOverviewFile(screenshot);
+        setPasteTarget('data');
+        setProgressLabel(
+          dataFile
+            ? 'Both screenshots pasted. Press Read both screenshots.'
+            : 'Overall screenshot pasted. Select DATA and paste the other screen.',
+        );
+      }
+    }
+
+    window.addEventListener('paste', handleClipboardPaste);
+    return () => window.removeEventListener('paste', handleClipboardPaste);
+  }, [dataFile, disabled, overviewFile, pasteTarget, reading]);
+
+  useEffect(() => {
+    if (!previewSlot) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setPreviewSlot(null);
+    }
+
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [previewSlot]);
 
   async function readScreenshots() {
     if (!dataFile || !overviewFile) return;
@@ -263,12 +322,44 @@ export default function ScreenshotBoxScoreImporter({
           <span>SEMI-AUTO SCREENSHOT IMPORT</span>
           <h3>Two screenshots. One verified box score.</h3>
           <p>
-            Upload Data (K/D/A + gold) and Overall (damage) from the same game.
+            Paste or upload Data (K/D/A + gold) and Overall (damage) from the same game.
             Nothing is saved until you press Apply verified data.
           </p>
         </div>
         <span className={styles.safetyBadge}>PREVIEW FIRST</span>
       </header>
+
+      <div className={styles.clipboardBar}>
+        <div>
+          <span>FASTEST ON LAPTOP</span>
+          <strong>Win + Shift + S → crop scoreboard → Ctrl + V</strong>
+          <small>
+            Clipboard automatically moves from Data to Overall. File upload stays available as a fallback.
+          </small>
+        </div>
+        <div role="group" aria-label="Choose the screenshot paste destination">
+          <button
+            className={pasteTarget === 'data' ? styles.activePasteTarget : ''}
+            type="button"
+            disabled={disabled || reading}
+            onClick={() => setPasteTarget('data')}
+          >
+            <span>1</span>
+            Paste DATA
+            <small>{dataFile ? 'READY' : 'EMPTY'}</small>
+          </button>
+          <button
+            className={pasteTarget === 'overview' ? styles.activePasteTarget : ''}
+            type="button"
+            disabled={disabled || reading}
+            onClick={() => setPasteTarget('overview')}
+          >
+            <span>2</span>
+            Paste OVERALL
+            <small>{overviewFile ? 'READY' : 'EMPTY'}</small>
+          </button>
+        </div>
+      </div>
 
       <div className={styles.setupGrid}>
         <FileDrop
@@ -278,8 +369,12 @@ export default function ScreenshotBoxScoreImporter({
           disabled={disabled || reading}
           onChange={(file) => {
             setDataFile(file);
+            if (file) setPasteTarget('overview');
             setReview(null);
             setProgress(0);
+            setProgressLabel(
+              file ? 'Data screenshot ready. Add the Overall screenshot.' : '',
+            );
           }}
         />
         <FileDrop
@@ -289,8 +384,16 @@ export default function ScreenshotBoxScoreImporter({
           disabled={disabled || reading}
           onChange={(file) => {
             setOverviewFile(file);
+            if (file) setPasteTarget('data');
             setReview(null);
             setProgress(0);
+            setProgressLabel(
+              file && dataFile
+                ? 'Both screenshots are ready. Press Read both screenshots.'
+                : file
+                  ? 'Overall screenshot ready. Add the Data screenshot.'
+                  : '',
+            );
           }}
         />
         <div className={styles.sidePicker}>
@@ -316,6 +419,32 @@ export default function ScreenshotBoxScoreImporter({
           <small>Choose screen position, not draft side.</small>
         </div>
       </div>
+
+      {(dataFile || overviewFile) && (
+        <section className={styles.sourcePreview} aria-label="Screenshot source preview">
+          <header>
+            <div>
+              <span>SOURCE SCREENSHOTS</span>
+              <strong>Audit the original images before applying OCR data.</strong>
+            </div>
+            <small>Tap a screenshot to enlarge · Esc closes preview</small>
+          </header>
+          <div className={styles.previewGrid}>
+            <ScreenshotPreviewCard
+              slot="data"
+              label="1 · DATA SCREEN"
+              file={dataFile}
+              onOpen={() => setPreviewSlot('data')}
+            />
+            <ScreenshotPreviewCard
+              slot="overview"
+              label="2 · OVERALL SCREEN"
+              file={overviewFile}
+              onOpen={() => setPreviewSlot('overview')}
+            />
+          </div>
+        </section>
+      )}
 
       <div className={styles.readBar}>
         <button
@@ -397,8 +526,110 @@ export default function ScreenshotBoxScoreImporter({
           </details>
         </div>
       )}
+
+      {previewSlot && expandedPreviewFile && (
+        <div
+          className={styles.previewOverlay}
+          role="presentation"
+          onClick={() => setPreviewSlot(null)}
+        >
+          <section
+            className={styles.previewDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${previewSlot === 'data' ? 'Data' : 'Overall'} screenshot preview`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header>
+              <div>
+                <span>FULL SOURCE PREVIEW</span>
+                <strong>
+                  {previewSlot === 'data' ? 'Data screen' : 'Overall screen'} ·{' '}
+                  {expandedPreviewFile.name}
+                </strong>
+              </div>
+              <button type="button" onClick={() => setPreviewSlot(null)}>
+                Close ×
+              </button>
+            </header>
+            <ScreenshotImage
+              key={filePreviewKey(expandedPreviewFile, `expanded-${previewSlot}`)}
+              file={expandedPreviewFile}
+              alt={`${previewSlot === 'data' ? 'Data' : 'Overall'} scoreboard screenshot`}
+              expanded
+            />
+          </section>
+        </div>
+      )}
     </section>
   );
+}
+
+function ScreenshotPreviewCard({
+  slot,
+  label,
+  file,
+  onOpen,
+}: {
+  slot: ScreenshotSlot;
+  label: string;
+  file: File | null;
+  onOpen: () => void;
+}) {
+  if (!file) {
+    return (
+      <div className={styles.previewPlaceholder} data-slot={slot}>
+        <span>{label}</span>
+        <strong>Waiting for screenshot</strong>
+        <small>Paste or choose the matching image above.</small>
+      </div>
+    );
+  }
+
+  return (
+    <button className={styles.previewCard} type="button" onClick={onOpen}>
+      <ScreenshotImage
+        key={filePreviewKey(file, slot)}
+        file={file}
+        alt={`${label} source preview`}
+      />
+      <span className={styles.previewCaption}>
+        <span>{label}</span>
+        <strong>{file.name}</strong>
+        <small>Tap to inspect full size ↗</small>
+      </span>
+    </button>
+  );
+}
+
+function ScreenshotImage({
+  file,
+  alt,
+  expanded = false,
+}: {
+  file: File;
+  alt: string;
+  expanded?: boolean;
+}) {
+  const [source] = useState(() => URL.createObjectURL(file));
+
+  useEffect(() => () => URL.revokeObjectURL(source), [source]);
+
+  return (
+    <div className={expanded ? styles.expandedImage : styles.previewImage}>
+      <NextImage
+        src={source}
+        alt={alt}
+        fill
+        unoptimized
+        sizes={expanded ? '96vw' : '50vw'}
+      />
+    </div>
+  );
+}
+
+function filePreviewKey(file: File, slot: string) {
+  return `${slot}-${file.name}-${file.size}-${file.lastModified}`;
 }
 
 function FileDrop({
@@ -686,4 +917,29 @@ function imageDimensions(url: string) {
     image.onerror = () => reject(new Error('The first screenshot is not a readable image.'));
     image.src = url;
   });
+}
+
+function screenshotFromClipboard(
+  clipboard: DataTransfer,
+  slot: ScreenshotSlot,
+) {
+  const itemFile = Array.from(clipboard.items)
+    .find((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    ?.getAsFile();
+  const clipboardFile = itemFile ?? Array.from(clipboard.files)
+    .find((file) => file.type.startsWith('image/'));
+
+  if (!clipboardFile) return null;
+  const mimeType = clipboardFile.type || 'image/png';
+  const extension = mimeType === 'image/jpeg'
+    ? 'jpg'
+    : mimeType === 'image/webp'
+      ? 'webp'
+      : 'png';
+
+  return new File(
+    [clipboardFile],
+    `clipboard-${slot}-${Date.now()}.${extension}`,
+    { type: mimeType, lastModified: Date.now() },
+  );
 }
