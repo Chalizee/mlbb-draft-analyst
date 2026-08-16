@@ -31,6 +31,8 @@ interface CanvasOptions {
   paddingX?: number;
   paddingY?: number;
   threshold?: number;
+  invert?: boolean;
+  preserveColor?: boolean;
 }
 
 interface DataNumbers {
@@ -46,50 +48,92 @@ interface OverviewNumbers {
   damageTaken: number | null;
 }
 
-const TEMPLATE_WIDTH = 1196;
-const TEMPLATE_HEIGHT = 540;
-const ROW_TOP = 115;
-const OVERVIEW_ROW_TOP = 141;
-const DATA_ROW_STEP = 69.5;
-const OVERVIEW_ROW_STEP = 69;
 const PLANNED_READS = 40;
 
-const DATA_ROW_RECTS: Record<ScreenshotTeamSide, Omit<TemplateRect, 'y'>> = {
-  left: { x: 364, width: 136, height: 33 },
-  right: { x: 702.5, width: 149.5, height: 33 },
-};
+interface NumericLayout {
+  kind: 'widescreen' | 'compact';
+  width: number;
+  height: number;
+  dataRowTop: number;
+  dataRowStep: number;
+  dataRows: Record<ScreenshotTeamSide, Omit<TemplateRect, 'y'>>;
+  dataCells?: Record<ScreenshotTeamSide, Array<Omit<TemplateRect, 'y'>>>;
+  overviewRowTop: number;
+  overviewRowStep: number;
+  overview: Record<
+    ScreenshotTeamSide,
+    Record<keyof OverviewNumbers, Omit<TemplateRect, 'y'>>
+  >;
+}
 
-const DATA_CELL_RECTS: Record<
-  ScreenshotTeamSide,
-  Array<Omit<TemplateRect, 'y'>>
-> = {
-  left: [
-    { x: 373, width: 22, height: 21 },
-    { x: 401, width: 22, height: 21 },
-    { x: 428, width: 26, height: 21 },
-    { x: 451, width: 62, height: 21 },
-  ],
-  right: [
-    { x: 704, width: 62, height: 21 },
-    { x: 761, width: 22, height: 21 },
-    { x: 789, width: 22, height: 21 },
-    { x: 817, width: 27, height: 21 },
-  ],
-};
-
-const OVERVIEW_RECTS: Record<
-  ScreenshotTeamSide,
-  Record<keyof OverviewNumbers, Omit<TemplateRect, 'y'>>
-> = {
-  left: {
-    damageDealt: { x: 219.5, width: 84, height: 18 },
-    turretDamage: { x: 314, width: 54, height: 16.5 },
-    damageTaken: { x: 404, width: 73, height: 16.5 },
+// Native 16:9 screenshots captured from the desktop client. These regions are
+// intentionally narrow so portraits, emblems, percentages, and medals never
+// enter the number recognizer.
+const WIDESCREEN_LAYOUT: NumericLayout = {
+  kind: 'widescreen',
+  width: 1920,
+  height: 1080,
+  dataRowTop: 230,
+  dataRowStep: 139,
+  dataRows: {
+    left: { x: 585, width: 250, height: 44 },
+    right: { x: 1085, width: 250, height: 44 },
   },
-  right: {
-    damageDealt: { x: 617, width: 92, height: 18 },
-    turretDamage: { x: 716, width: 61, height: 16.5 },
-    damageTaken: { x: 804, width: 81, height: 16.5 },
+  overviewRowTop: 272,
+  overviewRowStep: 139,
+  overview: {
+    left: {
+      damageDealt: { x: 326, width: 110, height: 42 },
+      turretDamage: { x: 480, width: 100, height: 42 },
+      damageTaken: { x: 630, width: 135, height: 42 },
+    },
+    right: {
+      damageDealt: { x: 990, width: 125, height: 42 },
+      turretDamage: { x: 1140, width: 110, height: 42 },
+      damageTaken: { x: 1290, width: 145, height: 42 },
+    },
+  },
+};
+
+// Retains support for the shorter/cropped screenshots used by the previous
+// importer release.
+const COMPACT_LAYOUT: NumericLayout = {
+  kind: 'compact',
+  width: 1196,
+  height: 540,
+  dataRowTop: 115,
+  dataRowStep: 69.5,
+  dataRows: {
+    left: { x: 364, width: 136, height: 33 },
+    right: { x: 702.5, width: 149.5, height: 33 },
+  },
+  dataCells: {
+    left: [
+      { x: 373, width: 22, height: 21 },
+      { x: 401, width: 22, height: 21 },
+      { x: 428, width: 26, height: 21 },
+      { x: 451, width: 62, height: 21 },
+    ],
+    right: [
+      { x: 704, width: 62, height: 21 },
+      { x: 761, width: 22, height: 21 },
+      { x: 789, width: 22, height: 21 },
+      { x: 817, width: 27, height: 21 },
+    ],
+  },
+  overviewRowTop: 141,
+  overviewRowStep: 69,
+  overview: {
+    left: {
+      damageDealt: { x: 219.5, width: 84, height: 18 },
+      turretDamage: { x: 314, width: 54, height: 16.5 },
+      damageTaken: { x: 404, width: 73, height: 16.5 },
+    },
+    right: {
+      damageDealt: { x: 617, width: 92, height: 18 },
+      turretDamage: { x: 716, width: 61, height: 16.5 },
+      damageTaken: { x: 804, width: 81, height: 16.5 },
+    },
   },
 };
 
@@ -105,6 +149,8 @@ export async function readMlbbNumericScreenshots({
   ]);
   const dataBounds = findScoreboardBounds(dataImage);
   const overviewBounds = findScoreboardBounds(overviewImage);
+  const dataLayout = chooseLayout(dataBounds);
+  const overviewLayout = chooseLayout(overviewBounds);
   let completed = 0;
 
   await setNumericParameters(worker, '7');
@@ -115,7 +161,14 @@ export async function readMlbbNumericScreenshots({
   };
   for (const side of ['left', 'right'] as const) {
     for (let row = 0; row < 5; row += 1) {
-      const numbers = await readDataRow(worker, dataImage, dataBounds, side, row);
+      const numbers = await readDataRow(
+        worker,
+        dataImage,
+        dataBounds,
+        dataLayout,
+        side,
+        row,
+      );
       dataRows[side].push(numbers);
       completed += 1;
       onProgress?.(
@@ -142,16 +195,18 @@ export async function readMlbbNumericScreenshots({
         'turretDamage',
         'damageTaken',
       ] as const) {
-        const base = OVERVIEW_RECTS[side][field];
-        const canvas = makeNumericCanvas(overviewImage, overviewBounds, {
+        const base = overviewLayout.overview[side][field];
+        const canvas = makeNumericCanvas(overviewImage, overviewBounds, overviewLayout, {
           ...base,
           y:
-            OVERVIEW_ROW_TOP +
-            (field === 'damageDealt' ? 0 : 1) +
-            row * OVERVIEW_ROW_STEP,
-        }, field === 'damageDealt'
-          ? { scale: 6, paddingX: 90, paddingY: 40, threshold: 0.55 }
-          : { scale: 6, paddingX: 80, paddingY: 35, threshold: 0.55 });
+            overviewLayout.overviewRowTop +
+            (overviewLayout.kind === 'compact' && field !== 'damageDealt' ? 1 : 0) +
+            row * overviewLayout.overviewRowStep,
+        }, overviewLayout.kind === 'widescreen'
+          ? { scale: 5, preserveColor: true }
+          : field === 'damageDealt'
+            ? { scale: 6, paddingX: 90, paddingY: 40, threshold: 0.55 }
+            : { scale: 6, paddingX: 80, paddingY: 35, threshold: 0.55 });
         values[field] = await recognizeCell(worker, canvas);
         completed += 1;
         onProgress?.(
@@ -200,31 +255,79 @@ async function readDataRow(
   worker: Tesseract.Worker,
   image: HTMLImageElement,
   bounds: ImageBounds,
+  layout: NumericLayout,
   side: ScreenshotTeamSide,
   row: number,
 ) {
-  const base = DATA_ROW_RECTS[side];
-  const rowCanvas = makeNumericCanvas(image, bounds, {
+  const base = layout.dataRows[side];
+  if (layout.kind === 'widescreen') {
+    return readWidescreenDataRow(worker, image, bounds, layout, side, row);
+  }
+
+  const rowCanvas = makeNumericCanvas(image, bounds, layout, {
     ...base,
-    y: ROW_TOP + row * DATA_ROW_STEP,
+    y: layout.dataRowTop + row * layout.dataRowStep,
   }, { scale: 4, paddingX: 0, paddingY: 0, threshold: 0.58 });
   const primaryText = await recognizeText(worker, rowCanvas);
   const primary = parseDataRow(primaryText, side);
   if (primary) return primary;
 
   const values: Array<number | null> = [];
-  for (const cell of DATA_CELL_RECTS[side]) {
+  for (const cell of layout.dataCells?.[side] ?? []) {
     values.push(
       await recognizeCell(
         worker,
-        makeNumericCanvas(image, bounds, {
+        makeNumericCanvas(image, bounds, layout, {
           ...cell,
-          y: ROW_TOP + 6 + row * DATA_ROW_STEP,
+          y: layout.dataRowTop + 6 + row * layout.dataRowStep,
         }, { scale: 6, paddingX: 80, paddingY: 35, threshold: 0.55 }),
       ),
     );
   }
   return dataValues(values, side);
+}
+
+async function readWidescreenDataRow(
+  worker: Tesseract.Worker,
+  image: HTMLImageElement,
+  bounds: ImageBounds,
+  layout: NumericLayout,
+  side: ScreenshotTeamSide,
+  row: number,
+) {
+  const base = layout.dataRows[side];
+  const rect = {
+    ...base,
+    y: layout.dataRowTop + row * layout.dataRowStep,
+  };
+  const original = makeNumericCanvas(image, bounds, layout, rect, {
+    scale: 5,
+    preserveColor: true,
+  });
+  const primaryOcr = await recognizeDetailed(worker, original);
+  const primary = parseDataRow(primaryOcr.text, side);
+
+  // Low-confidence glyphs (notably 5 vs 9) get a second black-on-white pass.
+  // If the first pass is confident, preserve it: bright MVP rows are more
+  // accurate in their original colors than after thresholding.
+  if (primary && primaryOcr.minimumWordConfidence > 0) return primary;
+
+  const highContrast = makeNumericCanvas(image, bounds, layout, {
+    ...rect,
+    height: 40,
+  }, {
+    scale: 4,
+    paddingX: 120,
+    paddingY: 80,
+    threshold: 0.42,
+    invert: true,
+  });
+  const fallback = parseDataRow(await recognizeText(worker, highContrast), side);
+  return fallback ?? primary ?? emptyDataNumbers();
+}
+
+function emptyDataNumbers(): DataNumbers {
+  return { kills: null, deaths: null, assists: null, gold: null };
 }
 
 async function recognizeCell(worker: Tesseract.Worker, canvas: HTMLCanvasElement) {
@@ -240,6 +343,25 @@ async function recognizeCell(worker: Tesseract.Worker, canvas: HTMLCanvasElement
 async function recognizeText(worker: Tesseract.Worker, canvas: HTMLCanvasElement) {
   const result = await worker.recognize(canvas, {}, { text: true });
   return result.data.text.trim();
+}
+
+async function recognizeDetailed(
+  worker: Tesseract.Worker,
+  canvas: HTMLCanvasElement,
+) {
+  const result = await worker.recognize(canvas, {}, { text: true, tsv: true });
+  const confidences = (result.data.tsv ?? '')
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => line.split('\t'))
+    .filter((columns) => columns.length >= 12 && columns[0] === '5')
+    .map((columns) => Number(columns[10]))
+    .filter(Number.isFinite);
+  return {
+    text: result.data.text.trim(),
+    minimumWordConfidence:
+      confidences.length > 0 ? Math.min(...confidences) : -1,
+  };
 }
 
 async function setNumericParameters(worker: Tesseract.Worker, pageMode: '7' | '8') {
@@ -299,11 +421,12 @@ function combineRows(data: DataNumbers[], overview: OverviewNumbers[]) {
 function makeNumericCanvas(
   image: HTMLImageElement,
   bounds: ImageBounds,
+  layout: NumericLayout,
   template: TemplateRect,
   options: CanvasOptions = {},
 ) {
-  const xScale = bounds.width / TEMPLATE_WIDTH;
-  const yScale = bounds.height / TEMPLATE_HEIGHT;
+  const xScale = bounds.width / layout.width;
+  const yScale = bounds.height / layout.height;
   const sourceX = Math.round(bounds.x + template.x * xScale);
   const sourceY = Math.round(bounds.y + template.y * yScale);
   const sourceWidth = Math.max(1, Math.round(template.width * xScale));
@@ -324,12 +447,15 @@ function makeNumericCanvas(
     sourceWidth,
     sourceHeight,
   );
-  thresholdCanvas(
-    sourceContext,
-    sourceWidth,
-    sourceHeight,
-    options.threshold ?? 0.55,
-  );
+  if (!options.preserveColor) {
+    thresholdCanvas(
+      sourceContext,
+      sourceWidth,
+      sourceHeight,
+      options.threshold ?? 0.55,
+      options.invert ?? false,
+    );
+  }
 
   const scale = options.scale ?? 6;
   const paddingX = options.paddingX ?? 90;
@@ -339,7 +465,7 @@ function makeNumericCanvas(
   output.height = sourceHeight * scale + paddingY * 2;
   const outputContext = output.getContext('2d');
   if (!outputContext) throw new Error('Browser canvas is unavailable.');
-  outputContext.fillStyle = '#000';
+  outputContext.fillStyle = options.invert ? '#fff' : '#000';
   outputContext.fillRect(0, 0, output.width, output.height);
   outputContext.imageSmoothingEnabled = false;
   outputContext.drawImage(
@@ -357,6 +483,7 @@ function thresholdCanvas(
   width: number,
   height: number,
   thresholdRatio: number,
+  invert: boolean,
 ) {
   const imageData = context.getImageData(0, 0, width, height);
   const histogram = Array.from({ length: 256 }, () => 0);
@@ -375,7 +502,8 @@ function thresholdCanvas(
   const high = percentile(histogram, grey.length, 0.98);
   const threshold = low + Math.max(1, high - low) * thresholdRatio;
   for (let pixel = 0; pixel < grey.length; pixel += 1) {
-    const value = grey[pixel] >= threshold ? 255 : 0;
+    const bright = grey[pixel] >= threshold;
+    const value = invert ? (bright ? 0 : 255) : bright ? 255 : 0;
     const offset = pixel * 4;
     imageData.data[offset] = value;
     imageData.data[offset + 1] = value;
@@ -383,6 +511,12 @@ function thresholdCanvas(
     imageData.data[offset + 3] = 255;
   }
   context.putImageData(imageData, 0, 0);
+}
+
+function chooseLayout(bounds: ImageBounds) {
+  return bounds.width / bounds.height <= 1.95
+    ? WIDESCREEN_LAYOUT
+    : COMPACT_LAYOUT;
 }
 
 function percentile(histogram: number[], total: number, ratio: number) {

@@ -1,7 +1,13 @@
 'use client';
 
 import NextImage from 'next/image';
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+} from 'react';
 import { HERO_DATA } from '@/data/heroData';
 import {
   SCRIM_ROLES,
@@ -16,6 +22,11 @@ import {
   type ScreenshotTeamSide,
 } from '@/lib/screenshotScoreParser';
 import { readMlbbNumericScreenshots } from '@/lib/numericScreenshotOcr';
+import {
+  deleteCachedScreenshot,
+  loadCachedScreenshot,
+  saveCachedScreenshot,
+} from '@/lib/screenshotCache';
 import styles from './ScreenshotBoxScoreImporter.module.css';
 
 interface ScreenshotBoxScoreImporterProps {
@@ -69,6 +80,9 @@ export default function ScreenshotBoxScoreImporter({
   const [progressLabel, setProgressLabel] = useState('');
   const [error, setError] = useState('');
   const [applied, setApplied] = useState(false);
+  const [cacheStatus, setCacheStatus] = useState(
+    'Checking this game for saved screenshots…',
+  );
   const reading = progress > 0 && progress < 100;
   const duplicateRoles = useMemo(() => {
     if (!review) return new Set<ScrimRole>();
@@ -95,6 +109,56 @@ export default function ScreenshotBoxScoreImporter({
         ? overviewFile
         : null;
 
+  const persistScreenshot = useCallback(
+    (slot: ScreenshotSlot, file: File | null) => {
+      setCacheStatus(file ? 'Saving screenshot on this device…' : 'Removing saved screenshot…');
+      const operation = file
+        ? saveCachedScreenshot(game.id, slot, file)
+        : deleteCachedScreenshot(game.id, slot);
+      void operation
+        .then(() => {
+          setCacheStatus(
+            file
+              ? 'Saved on this device · it will return when this game is reopened.'
+              : 'Saved screenshot removed from this device.',
+          );
+        })
+        .catch(() => {
+          setCacheStatus('Preview ready, but this browser could not save it locally.');
+        });
+    },
+    [game.id],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void Promise.all([
+      loadCachedScreenshot(game.id, 'data'),
+      loadCachedScreenshot(game.id, 'overview'),
+    ])
+      .then(([savedData, savedOverview]) => {
+        if (cancelled) return;
+        setDataFile(savedData);
+        setOverviewFile(savedOverview);
+        const restored = Number(Boolean(savedData)) + Number(Boolean(savedOverview));
+        setCacheStatus(
+          restored > 0
+            ? `Restored ${restored}/2 screenshot${restored === 1 ? '' : 's'} saved for this game.`
+            : 'Screenshots auto-save for this game on this device.',
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCacheStatus('Local screenshot storage is unavailable in this browser.');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [game.id]);
+
   useEffect(() => {
     function handleClipboardPaste(event: ClipboardEvent) {
       if (disabled || reading) return;
@@ -110,6 +174,7 @@ export default function ScreenshotBoxScoreImporter({
 
       if (pasteTarget === 'data') {
         setDataFile(screenshot);
+        persistScreenshot('data', screenshot);
         setPasteTarget('overview');
         setProgressLabel(
           overviewFile
@@ -118,6 +183,7 @@ export default function ScreenshotBoxScoreImporter({
         );
       } else {
         setOverviewFile(screenshot);
+        persistScreenshot('overview', screenshot);
         setPasteTarget('data');
         setProgressLabel(
           dataFile
@@ -129,7 +195,14 @@ export default function ScreenshotBoxScoreImporter({
 
     window.addEventListener('paste', handleClipboardPaste);
     return () => window.removeEventListener('paste', handleClipboardPaste);
-  }, [dataFile, disabled, overviewFile, pasteTarget, reading]);
+  }, [
+    dataFile,
+    disabled,
+    overviewFile,
+    pasteTarget,
+    persistScreenshot,
+    reading,
+  ]);
 
   useEffect(() => {
     if (!previewSlot) return;
@@ -318,7 +391,7 @@ export default function ScreenshotBoxScoreImporter({
           <span>FASTEST ON LAPTOP</span>
           <strong>Win + Shift + S → crop scoreboard → Ctrl + V</strong>
           <small>
-            Clipboard automatically moves from Data to Overall. File upload stays available as a fallback.
+            Clipboard automatically moves from Data to Overall. Each preview is saved per game on this device.
           </small>
         </div>
         <div role="group" aria-label="Choose the screenshot paste destination">
@@ -353,6 +426,7 @@ export default function ScreenshotBoxScoreImporter({
           disabled={disabled || reading}
           onChange={(file) => {
             setDataFile(file);
+            persistScreenshot('data', file);
             if (file) setPasteTarget('overview');
             setReview(null);
             setProgress(0);
@@ -368,6 +442,7 @@ export default function ScreenshotBoxScoreImporter({
           disabled={disabled || reading}
           onChange={(file) => {
             setOverviewFile(file);
+            persistScreenshot('overview', file);
             if (file) setPasteTarget('data');
             setReview(null);
             setProgress(0);
@@ -411,7 +486,7 @@ export default function ScreenshotBoxScoreImporter({
               <span>SOURCE SCREENSHOTS</span>
               <strong>Audit the original images before applying OCR data.</strong>
             </div>
-            <small>Tap a screenshot to enlarge · Esc closes preview</small>
+            <small>{cacheStatus} · Tap a screenshot to enlarge</small>
           </header>
           <div className={styles.previewGrid}>
             <ScreenshotPreviewCard
