@@ -11,11 +11,11 @@ import {
   type ScrimRole,
 } from '@/lib/scrimDatabase';
 import {
-  parseMlbbScoreScreenshots,
   type ScreenshotParseResult,
   type ScreenshotStatRow,
   type ScreenshotTeamSide,
 } from '@/lib/screenshotScoreParser';
+import { readMlbbNumericScreenshots } from '@/lib/numericScreenshotOcr';
 import styles from './ScreenshotBoxScoreImporter.module.css';
 
 interface ScreenshotBoxScoreImporterProps {
@@ -149,59 +149,30 @@ export default function ScreenshotBoxScoreImporter({
     setReview(null);
     setProgress(1);
     setProgressLabel('Preparing OCR engine…');
-    const urls: string[] = [];
+    let worker: Tesseract.Worker | null = null;
 
     try {
       const tesseract = await import('tesseract.js');
-      const worker = await tesseract.createWorker('eng', tesseract.OEM.LSTM_ONLY, {
+      worker = await tesseract.createWorker('eng', tesseract.OEM.LSTM_ONLY, {
         logger(message) {
           const base = progressLabelFor(message.status);
           if (base) setProgressLabel(base);
-          if (message.status === 'recognizing text') {
-            setProgress((current) =>
-              current < 48
-                ? 8 + Math.round(message.progress * 39)
-                : 52 + Math.round(message.progress * 43),
-            );
-          }
         },
       });
-      await worker.setParameters({
-        tessedit_pageseg_mode: tesseract.PSM.SINGLE_BLOCK,
-        preserve_interword_spaces: '1',
-        user_defined_dpi: '150',
-      });
-
-      const dataUrl = URL.createObjectURL(dataFile);
-      const overviewUrl = URL.createObjectURL(overviewFile);
-      urls.push(dataUrl, overviewUrl);
-      const dimensions = await imageDimensions(dataUrl);
-      setProgressLabel('Reading K/D/A and gold screenshot…');
-      const dataResult = await worker.recognize(
-        dataUrl,
-        { rotateAuto: true },
-        { text: true, tsv: true },
-      );
-      setProgress(51);
-      setProgressLabel('Reading damage overview screenshot…');
-      const overviewResult = await worker.recognize(
-        overviewUrl,
-        { rotateAuto: true },
-        { text: true, tsv: true },
-      );
-      await worker.terminate();
-
-      const parsed = parseMlbbScoreScreenshots({
-        dataTsv: dataResult.data.tsv ?? '',
-        dataText: dataResult.data.text ?? '',
-        overviewTsv: overviewResult.data.tsv ?? '',
-        overviewText: overviewResult.data.text ?? '',
-        width: dimensions.width,
-        height: dimensions.height,
+      setProgress(8);
+      setProgressLabel('Preparing number-only scoreboard regions…');
+      const parsed = await readMlbbNumericScreenshots({
+        worker,
+        dataFile,
+        overviewFile,
+        onProgress(completed, total, label) {
+          setProgress(8 + Math.round((completed / total) * 88));
+          setProgressLabel(label);
+        },
       });
       setReview(buildReview(parsed, ourSide, game));
       setProgress(100);
-      setProgressLabel('OCR finished. Verify every highlighted field.');
+      setProgressLabel('Number scan finished. Verify every cell against the preview.');
     } catch (caught) {
       setProgress(0);
       setProgressLabel('');
@@ -211,7 +182,7 @@ export default function ScreenshotBoxScoreImporter({
           : 'The screenshots could not be read.',
       );
     } finally {
-      urls.forEach((url) => URL.revokeObjectURL(url));
+      if (worker) await worker.terminate().catch(() => undefined);
     }
   }
 
@@ -234,9 +205,22 @@ export default function ScreenshotBoxScoreImporter({
       const key = owner === 'ours' ? 'ourRows' : 'opponentRows';
       return {
         ...current,
-        [key]: current[key].map((row) =>
-          row.key === rowKey ? { ...row, [field]: value } : row,
-        ),
+        [key]: current[key].map((row) => {
+          if (row.key !== rowKey) return row;
+          if (field !== 'role' || typeof value !== 'string' || !value) {
+            return { ...row, [field]: value };
+          }
+          const rosterPlayer =
+            owner === 'ours'
+              ? game.players.find((player) => player.role === value)
+              : game.opponentPlayers?.find((player) => player.role === value);
+          return {
+            ...row,
+            [field]: value,
+            playerName: rosterPlayer?.playerName || row.playerName,
+            hero: rosterPlayer?.hero || row.hero,
+          };
+        }),
       };
     });
     setApplied(false);
@@ -320,10 +304,10 @@ export default function ScreenshotBoxScoreImporter({
       <header className={styles.heading}>
         <div>
           <span>SEMI-AUTO SCREENSHOT IMPORT</span>
-          <h3>Two screenshots. One verified box score.</h3>
+          <h3>Numbers only. Two screenshots. One verified box score.</h3>
           <p>
-            Paste or upload Data (K/D/A + gold) and Overall (damage) from the same game.
-            Nothing is saved until you press Apply verified data.
+            Reads only the ten hero rows: K/D/A, gold, hero damage, turret damage,
+            damage taken, and calculated participation. Names and the match header are ignored.
           </p>
         </div>
         <span className={styles.safetyBadge}>PREVIEW FIRST</span>
@@ -468,16 +452,11 @@ export default function ScreenshotBoxScoreImporter({
             <div>
               <span>VERIFY BEFORE APPLY</span>
               <h4>
-                {review.parsed.result ?? 'Result?'} ·{' '}
-                {review.parsed.durationMinutes?.toFixed(1) ?? '—'} min ·{' '}
-                {review.parsed.detectedCells}/{review.parsed.totalCells} numeric cells detected
+                NUMBER-ONLY SCAN · {review.parsed.detectedCells}/
+                {review.parsed.totalCells} numeric cells detected
               </h4>
             </div>
-            <small>
-              {review.parsed.battleId
-                ? `Battle ID ${review.parsed.battleId}`
-                : 'Battle ID not detected — pair files manually'}
-            </small>
+            <small>Names, result, duration, and header kills intentionally ignored.</small>
           </header>
 
           <ReviewTeam
@@ -906,17 +885,8 @@ function progressLabelFor(status: string) {
   if (status === 'loading tesseract core') return 'Loading OCR core…';
   if (status === 'loading language traineddata') return 'Loading English OCR model…';
   if (status === 'initializing api') return 'Initializing screenshot reader…';
-  if (status === 'recognizing text') return 'Scanning scoreboard rows…';
+  if (status === 'recognizing text') return '';
   return '';
-}
-
-function imageDimensions(url: string) {
-  return new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
-    image.onerror = () => reject(new Error('The first screenshot is not a readable image.'));
-    image.src = url;
-  });
 }
 
 function screenshotFromClipboard(
