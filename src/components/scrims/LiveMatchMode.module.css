@@ -1146,45 +1146,62 @@
 
 .consoleMatchState {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  justify-items: center;
+  gap: 6px;
   padding: 9px;
 }
 
 .consoleScore {
   display: grid;
-  grid-template-columns: auto 1fr auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 5px;
+  justify-self: center;
+  gap: 8px;
+  width: min(100%, 260px);
   text-align: center;
 }
 
-.consoleScore span {
+.scoreSide {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  min-width: 0;
+}
+
+.scoreSide span {
   color: var(--dim);
-  font: 500 6px var(--font-mono);
+  font: 800 clamp(6px, 0.6vw, 8px) var(--font-mono);
+  letter-spacing: 0.06em;
+  line-height: 1;
+  white-space: nowrap;
 }
 
-.consoleScore strong {
-  font: 500 27px var(--font-mono);
+.scoreSide strong {
+  font: 700 clamp(30px, 2.5vw, 38px) var(--font-mono);
+  line-height: 0.9;
 }
 
-.consoleScore strong:first-of-type {
+.scoreSide[data-team='ours'] strong {
   color: var(--cyan);
 }
 
-.consoleScore strong:last-of-type {
+.scoreSide[data-team='enemy'] strong {
   color: var(--danger);
 }
 
 .consoleScore i {
   color: var(--dim);
+  font: 700 18px var(--font-mono);
   font-style: normal;
 }
 
 .consoleStateActions {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 5px;
+  width: 100%;
 }
 
 .consoleStateActions button {
@@ -1336,10 +1353,32 @@
   font: 600 6px var(--font-mono);
 }
 
+.playerDeathKey > button > .liveDeathCount {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  overflow: visible;
+  line-height: 1;
+  text-overflow: clip;
+}
+
+.liveDeathCount > strong {
+  color: var(--danger);
+  font: 800 clamp(15px, 1.5vw, 21px) var(--font-mono);
+  line-height: 0.9;
+}
+
+.liveDeathCount > span {
+  color: var(--danger);
+  font: 800 clamp(6px, 0.55vw, 8px) var(--font-mono);
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
 .eventControlDeck > div {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 6px;
   min-height: 0;
 }
@@ -1370,11 +1409,45 @@
   color: var(--danger);
 }
 
+.eventKey[data-capped='true'] {
+  border-style: dashed;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.025)),
+    var(--surface);
+}
+
+.eventKey[data-capped='true']::after {
+  position: absolute;
+  right: 5px;
+  bottom: 3px;
+  content: 'MAX';
+  opacity: 0.75;
+  font: 800 5px var(--font-mono);
+  letter-spacing: 0.06em;
+}
+
 .killKey {
-  grid-column: 1 / -1;
+  grid-column: 1 / span 2;
+  grid-row: 1;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   border-color: rgba(186, 252, 82, 0.42);
   background: rgba(186, 252, 82, 0.07);
   color: var(--accent);
+}
+
+.killKey > kbd {
+  justify-self: start;
+}
+
+.killKey > span {
+  justify-self: center;
+  font-size: clamp(8px, 0.85vw, 11px);
+  letter-spacing: 0.04em;
+}
+
+.killKey > strong {
+  justify-self: end;
+  font-weight: 800;
 }
 
 .eventKey > span,
@@ -1391,8 +1464,18 @@
   font: 500 clamp(16px, 1.7vw, 23px) var(--font-mono);
 }
 
+.killKey > span {
+  font-size: clamp(8px, 0.85vw, 11px);
+}
+
+.killKey > strong {
+  font-weight: 800;
+}
+
 .consoleResultSwitch {
   display: grid;
+  grid-column: 3;
+  grid-row: 1;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   overflow: hidden;
   border: 1px solid var(--line);
@@ -2686,7 +2769,8 @@
 
   .consoleMatchState {
     grid-column: auto;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
     padding: 6px;
   }
 
@@ -3404,8 +3488,21 @@
     padding: 4px;
   }
 
-  .liveShell[data-stage='game'] .consoleScore strong {
-    font-size: 21px;
+  .liveShell[data-stage='game'] .consoleScore {
+    gap: 5px;
+    width: min(100%, 190px);
+  }
+
+  .liveShell[data-stage='game'] .scoreSide span {
+    font-size: 6px;
+  }
+
+  .liveShell[data-stage='game'] .scoreSide strong {
+    font-size: clamp(27px, 8vw, 34px);
+  }
+
+  .liveShell[data-stage='game'] .consoleScore i {
+    font-size: 14px;
   }
 
   .liveShell[data-stage='game'] .consoleStateActions {
@@ -3507,6 +3604,14 @@
   .liveShell[data-stage='game'] .eventKey > strong,
   .liveShell[data-stage='game'] .killKey > strong {
     font-size: clamp(14px, 4.5vw, 19px);
+  }
+
+  .liveShell[data-stage='game'] .killKey > span {
+    font-size: clamp(7px, 2.1vw, 10px);
+  }
+
+  .liveShell[data-stage='game'] .killKey > strong {
+    font-size: clamp(18px, 5.5vw, 24px);
   }
 
   .liveShell[data-stage='game'] .consoleResultSwitch button {
@@ -3792,6 +3897,14 @@
   .liveShell[data-stage='game'] .eventKey > strong,
   .liveShell[data-stage='game'] .killKey > strong {
     font-size: 13px;
+  }
+
+  .liveShell[data-stage='game'] .killKey > span {
+    font-size: 6px;
+  }
+
+  .liveShell[data-stage='game'] .killKey > strong {
+    font-size: 17px;
   }
 
   .liveShell[data-stage='game'] .consoleResultSwitch button {

@@ -33,6 +33,9 @@ type HeroRoleFilter = 'All' | 'Tank' | 'Marksman' | 'Fighter' | 'Assassin' | 'Ma
 type DraftField = 'ourBans' | 'enemyBans' | 'ourPicks' | 'enemyPicks';
 type GoldMinute = 5 | 10 | 15;
 
+const MAX_TURTLES_PER_GAME = 3;
+const MAX_TOWERS_PER_TEAM = 9;
+
 interface GoldDraft {
   ours: string;
   enemy: string;
@@ -791,6 +794,22 @@ function LiveGame({
     type: Extract<ScrimLiveEvent['type'], 'turtle' | 'lord' | 'tower'>,
     owner: Exclude<ObjectiveOwner, 'None'>,
   ) {
+    if (
+      type === 'turtle'
+      && game.turtlesFor + game.turtlesAgainst >= MAX_TURTLES_PER_GAME
+    ) {
+      flashFeedback(`Turtle limit reached · ${MAX_TURTLES_PER_GAME}/${MAX_TURTLES_PER_GAME} total`);
+      return;
+    }
+
+    if (type === 'tower') {
+      const towerCount = owner === 'Us' ? game.towersFor : game.towersAgainst;
+      if (towerCount >= MAX_TOWERS_PER_TEAM) {
+        flashFeedback(`${owner === 'Us' ? 'Our' : 'Enemy'} turret limit reached · ${MAX_TOWERS_PER_TEAM}/${MAX_TOWERS_PER_TEAM}`);
+        return;
+      }
+    }
+
     const liveEvent = makeLiveEvent({ type, owner });
     const nextGame: ScrimGame = {
       ...game,
@@ -962,10 +981,19 @@ function LiveGame({
         </button>
 
         <div className={styles.consoleMatchState}>
-          <div className={styles.consoleScore}>
-            <span>US</span><strong>{game.teamKills}</strong>
-            <i>—</i>
-            <strong>{game.enemyKills}</strong><span>THEM</span>
+          <div
+            className={styles.consoleScore}
+            aria-label={`Our kills ${game.teamKills}, enemy kills ${game.enemyKills}`}
+          >
+            <div className={styles.scoreSide} data-team="ours">
+              <span>OUR KILLS</span>
+              <strong>{game.teamKills}</strong>
+            </div>
+            <i>:</i>
+            <div className={styles.scoreSide} data-team="enemy">
+              <span>ENEMY KILLS</span>
+              <strong>{game.enemyKills}</strong>
+            </div>
           </div>
           <div className={styles.consoleStateActions}>
             <button
@@ -1005,7 +1033,10 @@ function LiveGame({
                     />
                     <strong>{player.hero || 'Hero not set'}</strong>
                     <span>{player.role} · {player.playerName || 'Player'}</span>
-                    <b>{deathEvents} LIVE DEATH{deathEvents === 1 ? '' : 'S'}</b>
+                    <b className={styles.liveDeathCount}>
+                      <strong>{deathEvents}</strong>
+                      <span>LIVE DEATH{deathEvents === 1 ? '' : 'S'}</span>
+                    </b>
                   </button>
                 </article>
               );
@@ -1022,12 +1053,40 @@ function LiveGame({
             <button className={styles.killKey} type="button" onClick={recordOurKill}>
               <kbd>K</kbd><span>OUR KILL</span><strong>+1</strong>
             </button>
-            <EventKey shortcut="Q" label="OUR TURTLE" value={game.turtlesFor} owner="ours" onClick={() => recordObjective('turtle', 'Us')} />
-            <EventKey shortcut="W" label="ENEMY TURTLE" value={game.turtlesAgainst} owner="enemy" onClick={() => recordObjective('turtle', 'Opponent')} />
+            <EventKey
+              shortcut="Q"
+              label="OUR TURTLE"
+              value={game.turtlesFor}
+              owner="ours"
+              capped={game.turtlesFor + game.turtlesAgainst >= MAX_TURTLES_PER_GAME}
+              onClick={() => recordObjective('turtle', 'Us')}
+            />
+            <EventKey
+              shortcut="Z"
+              label="OUR TURRET"
+              value={game.towersFor}
+              owner="ours"
+              capped={game.towersFor >= MAX_TOWERS_PER_TEAM}
+              onClick={() => recordObjective('tower', 'Us')}
+            />
             <EventKey shortcut="A" label="OUR LORD" value={game.lordsFor} owner="ours" onClick={() => recordObjective('lord', 'Us')} />
+            <EventKey
+              shortcut="W"
+              label="ENEMY TURTLE"
+              value={game.turtlesAgainst}
+              owner="enemy"
+              capped={game.turtlesFor + game.turtlesAgainst >= MAX_TURTLES_PER_GAME}
+              onClick={() => recordObjective('turtle', 'Opponent')}
+            />
+            <EventKey
+              shortcut="X"
+              label="ENEMY TURRET"
+              value={game.towersAgainst}
+              owner="enemy"
+              capped={game.towersAgainst >= MAX_TOWERS_PER_TEAM}
+              onClick={() => recordObjective('tower', 'Opponent')}
+            />
             <EventKey shortcut="S" label="ENEMY LORD" value={game.lordsAgainst} owner="enemy" onClick={() => recordObjective('lord', 'Opponent')} />
-            <EventKey shortcut="Z" label="OUR TOWER" value={game.towersFor} owner="ours" onClick={() => recordObjective('tower', 'Us')} />
-            <EventKey shortcut="X" label="ENEMY TOWER" value={game.towersAgainst} owner="enemy" onClick={() => recordObjective('tower', 'Opponent')} />
             <div className={styles.consoleResultSwitch}>
               {(['Win', 'Loss'] as ScrimResult[]).map((result) => (
                 <button
@@ -1239,16 +1298,25 @@ function EventKey({
   label,
   value,
   owner,
+  capped = false,
   onClick,
 }: {
   shortcut: string;
   label: string;
   value: number;
   owner: 'ours' | 'enemy';
+  capped?: boolean;
   onClick: () => void;
 }) {
   return (
-    <button className={styles.eventKey} data-owner={owner} type="button" onClick={onClick}>
+    <button
+      className={styles.eventKey}
+      data-capped={capped || undefined}
+      data-owner={owner}
+      aria-label={`${label}: ${value}${capped ? ', maximum reached' : ''}`}
+      type="button"
+      onClick={onClick}
+    >
       <kbd>{shortcut}</kbd><span>{label}</span><strong>{value}</strong>
     </button>
   );
