@@ -238,6 +238,197 @@
   gap: 12px;
 }
 
+.sourcePreview {
+  display: grid;
+  gap: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(97, 230, 210, 0.2);
+  border-radius: 11px;
+  background: var(--bg);
+  padding: 12px;
+}
+
+.sourcePreview > header,
+.previewDialog > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sourcePreview > header > div,
+.previewDialog > header > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sourcePreview > header span,
+.previewDialog > header span {
+  color: var(--cyan);
+  font: 500 6px var(--font-mono);
+  letter-spacing: 0.1em;
+}
+
+.sourcePreview > header strong,
+.previewDialog > header strong {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sourcePreview > header small {
+  flex: 0 0 auto;
+  color: var(--dim);
+  font-size: 7px;
+}
+
+.previewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.previewCard,
+.previewPlaceholder {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-bright);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.previewCard {
+  display: grid;
+  padding: 0;
+  color: var(--text);
+  text-align: left;
+  cursor: zoom-in;
+}
+
+.previewCard:hover,
+.previewCard:focus-visible {
+  border-color: var(--cyan);
+  outline: none;
+}
+
+.previewImage,
+.expandedImage {
+  position: relative;
+  overflow: hidden;
+  background: #020403;
+}
+
+.previewImage {
+  aspect-ratio: 16 / 7.7;
+  border-bottom: 1px solid var(--line);
+}
+
+.previewImage img,
+.expandedImage img {
+  object-fit: contain;
+}
+
+.previewCaption {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+}
+
+.previewCaption > span,
+.previewPlaceholder > span {
+  color: var(--cyan);
+  font: 500 6px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.previewCaption > strong {
+  overflow: hidden;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewCaption > small {
+  color: var(--dim);
+  font-size: 6px;
+  white-space: nowrap;
+}
+
+.previewPlaceholder {
+  display: grid;
+  min-height: 170px;
+  place-content: center;
+  gap: 5px;
+  border-style: dashed;
+  padding: 18px;
+  color: var(--dim);
+  text-align: center;
+}
+
+.previewPlaceholder strong {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.previewPlaceholder small {
+  font-size: 7px;
+}
+
+.previewOverlay {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: rgba(2, 4, 3, 0.92);
+  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+    max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  backdrop-filter: blur(10px);
+}
+
+.previewDialog {
+  display: grid;
+  width: min(1480px, 100%);
+  max-height: calc(100dvh - 36px);
+  gap: 10px;
+  border: 1px solid rgba(186, 252, 82, 0.35);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 12px;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.55);
+}
+
+.previewDialog > header button {
+  flex: 0 0 auto;
+  border: 1px solid var(--line-bright);
+  border-radius: 7px;
+  background: var(--bg);
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.previewDialog > header button:hover,
+.previewDialog > header button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+
+.expandedImage {
+  width: 100%;
+  height: min(82dvh, 900px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
 .readBar > button,
 .applyBar > button {
   border: 1px solid rgba(97, 230, 210, 0.34);
@@ -456,6 +647,7 @@
   }
 
   .heading,
+  .sourcePreview > header,
   .review > header,
   .applyBar {
     align-items: stretch;
@@ -479,5 +671,36 @@
 
   .clipboardBar button:last-child {
     border-bottom: 0;
+  }
+
+  .previewGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .previewPlaceholder {
+    min-height: 120px;
+  }
+
+  .previewCaption {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .previewCaption > small {
+    grid-column: 1 / -1;
+  }
+
+  .previewOverlay {
+    align-items: start;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+
+  .previewDialog {
+    max-height: calc(100dvh - 16px);
+    padding: 9px;
+  }
+
+  .expandedImage {
+    height: calc(100dvh - 86px);
   }
 }

@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import NextImage from 'next/image';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+} from 'react';
 import { HERO_DATA } from '@/data/heroData';
 import {
   SCRIM_ROLES,
@@ -10,11 +17,16 @@ import {
   type ScrimRole,
 } from '@/lib/scrimDatabase';
 import {
-  parseMlbbScoreScreenshots,
   type ScreenshotParseResult,
   type ScreenshotStatRow,
   type ScreenshotTeamSide,
 } from '@/lib/screenshotScoreParser';
+import { readMlbbNumericScreenshots } from '@/lib/numericScreenshotOcr';
+import {
+  deleteCachedScreenshot,
+  loadCachedScreenshot,
+  saveCachedScreenshot,
+} from '@/lib/screenshotCache';
 import styles from './ScreenshotBoxScoreImporter.module.css';
 
 interface ScreenshotBoxScoreImporterProps {
@@ -61,12 +73,16 @@ export default function ScreenshotBoxScoreImporter({
   const [dataFile, setDataFile] = useState<File | null>(null);
   const [overviewFile, setOverviewFile] = useState<File | null>(null);
   const [pasteTarget, setPasteTarget] = useState<ScreenshotSlot>('data');
+  const [previewSlot, setPreviewSlot] = useState<ScreenshotSlot | null>(null);
   const [ourSide, setOurSide] = useState<ScreenshotTeamSide>('left');
   const [review, setReview] = useState<ReviewState | null>(null);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
   const [error, setError] = useState('');
   const [applied, setApplied] = useState(false);
+  const [cacheStatus, setCacheStatus] = useState(
+    'Checking this game for saved screenshots…',
+  );
   const reading = progress > 0 && progress < 100;
   const duplicateRoles = useMemo(() => {
     if (!review) return new Set<ScrimRole>();
@@ -86,6 +102,63 @@ export default function ScreenshotBoxScoreImporter({
       duplicateRoles.size === 0,
   );
 
+  const expandedPreviewFile =
+    previewSlot === 'data'
+      ? dataFile
+      : previewSlot === 'overview'
+        ? overviewFile
+        : null;
+
+  const persistScreenshot = useCallback(
+    (slot: ScreenshotSlot, file: File | null) => {
+      setCacheStatus(file ? 'Saving screenshot on this device…' : 'Removing saved screenshot…');
+      const operation = file
+        ? saveCachedScreenshot(game.id, slot, file)
+        : deleteCachedScreenshot(game.id, slot);
+      void operation
+        .then(() => {
+          setCacheStatus(
+            file
+              ? 'Saved on this device · it will return when this game is reopened.'
+              : 'Saved screenshot removed from this device.',
+          );
+        })
+        .catch(() => {
+          setCacheStatus('Preview ready, but this browser could not save it locally.');
+        });
+    },
+    [game.id],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void Promise.all([
+      loadCachedScreenshot(game.id, 'data'),
+      loadCachedScreenshot(game.id, 'overview'),
+    ])
+      .then(([savedData, savedOverview]) => {
+        if (cancelled) return;
+        setDataFile(savedData);
+        setOverviewFile(savedOverview);
+        const restored = Number(Boolean(savedData)) + Number(Boolean(savedOverview));
+        setCacheStatus(
+          restored > 0
+            ? `Restored ${restored}/2 screenshot${restored === 1 ? '' : 's'} saved for this game.`
+            : 'Screenshots auto-save for this game on this device.',
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCacheStatus('Local screenshot storage is unavailable in this browser.');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [game.id]);
+
   useEffect(() => {
     function handleClipboardPaste(event: ClipboardEvent) {
       if (disabled || reading) return;
@@ -101,6 +174,7 @@ export default function ScreenshotBoxScoreImporter({
 
       if (pasteTarget === 'data') {
         setDataFile(screenshot);
+        persistScreenshot('data', screenshot);
         setPasteTarget('overview');
         setProgressLabel(
           overviewFile
@@ -109,6 +183,7 @@ export default function ScreenshotBoxScoreImporter({
         );
       } else {
         setOverviewFile(screenshot);
+        persistScreenshot('overview', screenshot);
         setPasteTarget('data');
         setProgressLabel(
           dataFile
@@ -120,7 +195,25 @@ export default function ScreenshotBoxScoreImporter({
 
     window.addEventListener('paste', handleClipboardPaste);
     return () => window.removeEventListener('paste', handleClipboardPaste);
-  }, [dataFile, disabled, overviewFile, pasteTarget, reading]);
+  }, [
+    dataFile,
+    disabled,
+    overviewFile,
+    pasteTarget,
+    persistScreenshot,
+    reading,
+  ]);
+
+  useEffect(() => {
+    if (!previewSlot) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setPreviewSlot(null);
+    }
+
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [previewSlot]);
 
   async function readScreenshots() {
     if (!dataFile || !overviewFile) return;
@@ -129,59 +222,30 @@ export default function ScreenshotBoxScoreImporter({
     setReview(null);
     setProgress(1);
     setProgressLabel('Preparing OCR engine…');
-    const urls: string[] = [];
+    let worker: Tesseract.Worker | null = null;
 
     try {
       const tesseract = await import('tesseract.js');
-      const worker = await tesseract.createWorker('eng', tesseract.OEM.LSTM_ONLY, {
+      worker = await tesseract.createWorker('eng', tesseract.OEM.LSTM_ONLY, {
         logger(message) {
           const base = progressLabelFor(message.status);
           if (base) setProgressLabel(base);
-          if (message.status === 'recognizing text') {
-            setProgress((current) =>
-              current < 48
-                ? 8 + Math.round(message.progress * 39)
-                : 52 + Math.round(message.progress * 43),
-            );
-          }
         },
       });
-      await worker.setParameters({
-        tessedit_pageseg_mode: tesseract.PSM.SINGLE_BLOCK,
-        preserve_interword_spaces: '1',
-        user_defined_dpi: '150',
-      });
-
-      const dataUrl = URL.createObjectURL(dataFile);
-      const overviewUrl = URL.createObjectURL(overviewFile);
-      urls.push(dataUrl, overviewUrl);
-      const dimensions = await imageDimensions(dataUrl);
-      setProgressLabel('Reading K/D/A and gold screenshot…');
-      const dataResult = await worker.recognize(
-        dataUrl,
-        { rotateAuto: true },
-        { text: true, tsv: true },
-      );
-      setProgress(51);
-      setProgressLabel('Reading damage overview screenshot…');
-      const overviewResult = await worker.recognize(
-        overviewUrl,
-        { rotateAuto: true },
-        { text: true, tsv: true },
-      );
-      await worker.terminate();
-
-      const parsed = parseMlbbScoreScreenshots({
-        dataTsv: dataResult.data.tsv ?? '',
-        dataText: dataResult.data.text ?? '',
-        overviewTsv: overviewResult.data.tsv ?? '',
-        overviewText: overviewResult.data.text ?? '',
-        width: dimensions.width,
-        height: dimensions.height,
+      setProgress(8);
+      setProgressLabel('Preparing number-only scoreboard regions…');
+      const parsed = await readMlbbNumericScreenshots({
+        worker,
+        dataFile,
+        overviewFile,
+        onProgress(completed, total, label) {
+          setProgress(8 + Math.round((completed / total) * 88));
+          setProgressLabel(label);
+        },
       });
       setReview(buildReview(parsed, ourSide, game));
       setProgress(100);
-      setProgressLabel('OCR finished. Verify every highlighted field.');
+      setProgressLabel('Number scan finished. Verify every cell against the preview.');
     } catch (caught) {
       setProgress(0);
       setProgressLabel('');
@@ -191,7 +255,7 @@ export default function ScreenshotBoxScoreImporter({
           : 'The screenshots could not be read.',
       );
     } finally {
-      urls.forEach((url) => URL.revokeObjectURL(url));
+      if (worker) await worker.terminate().catch(() => undefined);
     }
   }
 
@@ -214,9 +278,22 @@ export default function ScreenshotBoxScoreImporter({
       const key = owner === 'ours' ? 'ourRows' : 'opponentRows';
       return {
         ...current,
-        [key]: current[key].map((row) =>
-          row.key === rowKey ? { ...row, [field]: value } : row,
-        ),
+        [key]: current[key].map((row) => {
+          if (row.key !== rowKey) return row;
+          if (field !== 'role' || typeof value !== 'string' || !value) {
+            return { ...row, [field]: value };
+          }
+          const rosterPlayer =
+            owner === 'ours'
+              ? game.players.find((player) => player.role === value)
+              : game.opponentPlayers?.find((player) => player.role === value);
+          return {
+            ...row,
+            [field]: value,
+            playerName: rosterPlayer?.playerName || row.playerName,
+            hero: rosterPlayer?.hero || row.hero,
+          };
+        }),
       };
     });
     setApplied(false);
@@ -300,10 +377,10 @@ export default function ScreenshotBoxScoreImporter({
       <header className={styles.heading}>
         <div>
           <span>SEMI-AUTO SCREENSHOT IMPORT</span>
-          <h3>Two screenshots. One verified box score.</h3>
+          <h3>Numbers only. Two screenshots. One verified box score.</h3>
           <p>
-            Paste or upload Data (K/D/A + gold) and Overall (damage) from the same game.
-            Nothing is saved until you press Apply verified data.
+            Reads only the ten hero rows: K/D/A, gold, hero damage, turret damage,
+            damage taken, and calculated participation. Names and the match header are ignored.
           </p>
         </div>
         <span className={styles.safetyBadge}>PREVIEW FIRST</span>
@@ -314,7 +391,7 @@ export default function ScreenshotBoxScoreImporter({
           <span>FASTEST ON LAPTOP</span>
           <strong>Win + Shift + S → crop scoreboard → Ctrl + V</strong>
           <small>
-            Clipboard automatically moves from Data to Overall. File upload stays available as a fallback.
+            Clipboard automatically moves from Data to Overall. Each preview is saved per game on this device.
           </small>
         </div>
         <div role="group" aria-label="Choose the screenshot paste destination">
@@ -349,6 +426,7 @@ export default function ScreenshotBoxScoreImporter({
           disabled={disabled || reading}
           onChange={(file) => {
             setDataFile(file);
+            persistScreenshot('data', file);
             if (file) setPasteTarget('overview');
             setReview(null);
             setProgress(0);
@@ -364,6 +442,7 @@ export default function ScreenshotBoxScoreImporter({
           disabled={disabled || reading}
           onChange={(file) => {
             setOverviewFile(file);
+            persistScreenshot('overview', file);
             if (file) setPasteTarget('data');
             setReview(null);
             setProgress(0);
@@ -400,6 +479,32 @@ export default function ScreenshotBoxScoreImporter({
         </div>
       </div>
 
+      {(dataFile || overviewFile) && (
+        <section className={styles.sourcePreview} aria-label="Screenshot source preview">
+          <header>
+            <div>
+              <span>SOURCE SCREENSHOTS</span>
+              <strong>Audit the original images before applying OCR data.</strong>
+            </div>
+            <small>{cacheStatus} · Tap a screenshot to enlarge</small>
+          </header>
+          <div className={styles.previewGrid}>
+            <ScreenshotPreviewCard
+              slot="data"
+              label="1 · DATA SCREEN"
+              file={dataFile}
+              onOpen={() => setPreviewSlot('data')}
+            />
+            <ScreenshotPreviewCard
+              slot="overview"
+              label="2 · OVERALL SCREEN"
+              file={overviewFile}
+              onOpen={() => setPreviewSlot('overview')}
+            />
+          </div>
+        </section>
+      )}
+
       <div className={styles.readBar}>
         <button
           type="button"
@@ -422,16 +527,11 @@ export default function ScreenshotBoxScoreImporter({
             <div>
               <span>VERIFY BEFORE APPLY</span>
               <h4>
-                {review.parsed.result ?? 'Result?'} ·{' '}
-                {review.parsed.durationMinutes?.toFixed(1) ?? '—'} min ·{' '}
-                {review.parsed.detectedCells}/{review.parsed.totalCells} numeric cells detected
+                NUMBER-ONLY SCAN · {review.parsed.detectedCells}/
+                {review.parsed.totalCells} numeric cells detected
               </h4>
             </div>
-            <small>
-              {review.parsed.battleId
-                ? `Battle ID ${review.parsed.battleId}`
-                : 'Battle ID not detected — pair files manually'}
-            </small>
+            <small>Names, result, duration, and header kills intentionally ignored.</small>
           </header>
 
           <ReviewTeam
@@ -480,8 +580,110 @@ export default function ScreenshotBoxScoreImporter({
           </details>
         </div>
       )}
+
+      {previewSlot && expandedPreviewFile && (
+        <div
+          className={styles.previewOverlay}
+          role="presentation"
+          onClick={() => setPreviewSlot(null)}
+        >
+          <section
+            className={styles.previewDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${previewSlot === 'data' ? 'Data' : 'Overall'} screenshot preview`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header>
+              <div>
+                <span>FULL SOURCE PREVIEW</span>
+                <strong>
+                  {previewSlot === 'data' ? 'Data screen' : 'Overall screen'} ·{' '}
+                  {expandedPreviewFile.name}
+                </strong>
+              </div>
+              <button type="button" onClick={() => setPreviewSlot(null)}>
+                Close ×
+              </button>
+            </header>
+            <ScreenshotImage
+              key={filePreviewKey(expandedPreviewFile, `expanded-${previewSlot}`)}
+              file={expandedPreviewFile}
+              alt={`${previewSlot === 'data' ? 'Data' : 'Overall'} scoreboard screenshot`}
+              expanded
+            />
+          </section>
+        </div>
+      )}
     </section>
   );
+}
+
+function ScreenshotPreviewCard({
+  slot,
+  label,
+  file,
+  onOpen,
+}: {
+  slot: ScreenshotSlot;
+  label: string;
+  file: File | null;
+  onOpen: () => void;
+}) {
+  if (!file) {
+    return (
+      <div className={styles.previewPlaceholder} data-slot={slot}>
+        <span>{label}</span>
+        <strong>Waiting for screenshot</strong>
+        <small>Paste or choose the matching image above.</small>
+      </div>
+    );
+  }
+
+  return (
+    <button className={styles.previewCard} type="button" onClick={onOpen}>
+      <ScreenshotImage
+        key={filePreviewKey(file, slot)}
+        file={file}
+        alt={`${label} source preview`}
+      />
+      <span className={styles.previewCaption}>
+        <span>{label}</span>
+        <strong>{file.name}</strong>
+        <small>Tap to inspect full size ↗</small>
+      </span>
+    </button>
+  );
+}
+
+function ScreenshotImage({
+  file,
+  alt,
+  expanded = false,
+}: {
+  file: File;
+  alt: string;
+  expanded?: boolean;
+}) {
+  const [source] = useState(() => URL.createObjectURL(file));
+
+  useEffect(() => () => URL.revokeObjectURL(source), [source]);
+
+  return (
+    <div className={expanded ? styles.expandedImage : styles.previewImage}>
+      <NextImage
+        src={source}
+        alt={alt}
+        fill
+        unoptimized
+        sizes={expanded ? '96vw' : '50vw'}
+      />
+    </div>
+  );
+}
+
+function filePreviewKey(file: File, slot: string) {
+  return `${slot}-${file.name}-${file.size}-${file.lastModified}`;
 }
 
 function FileDrop({
@@ -758,17 +960,8 @@ function progressLabelFor(status: string) {
   if (status === 'loading tesseract core') return 'Loading OCR core…';
   if (status === 'loading language traineddata') return 'Loading English OCR model…';
   if (status === 'initializing api') return 'Initializing screenshot reader…';
-  if (status === 'recognizing text') return 'Scanning scoreboard rows…';
+  if (status === 'recognizing text') return '';
   return '';
-}
-
-function imageDimensions(url: string) {
-  return new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
-    image.onerror = () => reject(new Error('The first screenshot is not a readable image.'));
-    image.src = url;
-  });
 }
 
 function screenshotFromClipboard(
